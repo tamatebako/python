@@ -1,0 +1,21 @@
+# Spec fixture manifest. Dead URLs (127.0.0.1:1) — no spec touches the
+# network. Every sha256 is fake except 9.9.9's, which is the real sum of
+# fixtures/Python-9.9.9.tar.xz (so cache-seeded prepare/check specs run the
+# genuine verify + extract path).
+versions:
+  3.12.13:
+    url: http://127.0.0.1:1/Python-3.12.13.tar.xz
+    sha256: "0000000000000000000000000000000000000000000000000000000000000001"
+    line: "3.12"
+  3.12.14:
+    url: http://127.0.0.1:1/Python-3.12.14.tar.xz
+    sha256: "0000000000000000000000000000000000000000000000000000000000000002"
+    line: "3.12"
+  3.13.15:
+    url: http://127.0.0.1:1/Python-3.13.15.tar.xz
+    sha256: "0000000000000000000000000000000000000000000000000000000000000003"
+    line: "3.13"
+  9.9.9:
+    url: http://127.0.0.1:1/Python-9.9.9.tar.xz
+    sha256: "f9dbc2ef5f74bd9a0f620d2da7cafe1938ad45afa31d0895a2b30b58196f555e"
+    line: "9.9"

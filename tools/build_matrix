@@ -1,0 +1,61 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/build_matrix <release-tag> [--build|--copies|--previous-tag]
+#
+# Prints release-src's diff-aware build plan (Tfs::BuildPlan over
+# Tfs::ReleaseDiff) as GitHub Actions matrix documents:
+#
+#   --build   {"include":[{version,tree,asset},...]} — the legs to REPACK:
+#             versions whose patch line changed, plus every version on a
+#             shared tooling change (tools/**, schema/** or any
+#             unattributable path — fail closed), plus versions whose
+#             versions.yml entry is new or moved, plus everything on the
+#             first release.
+#   --copies  {"include":[{version,asset},...]} — the legs CARRIED FORWARD
+#             from the previous release, sha256-verified against its
+#             published SHA256SUMS (tools/copy_asset).
+#   --previous-tag — the bare tag the copies come from (empty on the first
+#             release).
+#
+# With no flag, prints all three as one JSON document.
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+require "json"
+require "tempfile"
+
+tag = ARGV[0] or abort "usage: tools/build_matrix <release-tag> [--build|--copies|--previous-tag]"
+mode = ARGV[1] || "--all"
+unless %w[--build --copies --previous-tag --all].include?(mode)
+  abort "tools/build_matrix: unknown mode #{mode.inspect} (want --build, --copies or --previous-tag)"
+end
+
+diff = Tfs::ReleaseDiff.new(tag)
+versions = Tfs::Versions.new
+previous_versions = nil
+unless diff.previous_tag.nil?
+  begin
+    Tempfile.create(["versions", ".yml"]) do |file|
+      file.write(diff.previous_file("versions.yml"))
+      file.flush
+      previous_versions = Tfs::Versions.new(file.path)
+    end
+  rescue Tfs::ReleaseDiff::Error, ArgumentError => e
+    abort "tools/build_matrix: cannot read versions.yml at #{diff.previous_tag}: #{e.message}"
+  end
+end
+
+plan = Tfs::BuildPlan.new(versions: versions, diff: diff, previous_versions: previous_versions)
+document = {
+  "build" => { "include" => plan.builds },
+  "copies" => { "include" => plan.copies },
+  "previous_tag" => diff.previous_tag
+}
+
+case mode
+when "--build" then puts JSON.generate(document["build"])
+when "--copies" then puts JSON.generate(document["copies"])
+when "--previous-tag" then puts diff.previous_tag
+else puts JSON.generate(document)
+end

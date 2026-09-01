@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/validate_manifests
+# Validates versions.yml and every patches/<line>/patch-*.yaml manifest
+# against the schemas in schema/. Exits non-zero on any violation.
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+
+errors = Tfs::SchemaLint.new.errors
+errors.each { |error| warn error }
+abort "FAIL #{errors.size} schema violation(s)" unless errors.empty?
+
+puts "OK all manifests valid against schema/"

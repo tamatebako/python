@@ -1,0 +1,7 @@
+# prepare/probe work dirs / artifacts
+/build/
+/.cache/
+
+# bundler
+/Gemfile.lock
+/vendor/

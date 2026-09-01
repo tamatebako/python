@@ -1,0 +1,48 @@
+name: lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One run per branch/PR-head at a time: pushing to a branch with an open
+# PR would otherwise run every job twice (push + pull_request events);
+# a new run cancels the stale one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  versions:
+    name: emit version matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.emit.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+      - id: emit
+        run: echo "matrix=$(tools/versions)" >> "$GITHUB_OUTPUT"
+
+  lint:
+    name: lint ${{ matrix.version }}
+    needs: versions
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - name: validate manifests against schema
+        run: bundle exec tools/validate_manifests
+      # The zero-patch gate: fetch the pinned tarball, verify its sha256,
+      # extract, assert a CPython source tree. When the first patch lands
+      # its git apply --check joins this step (tools/lint).
+      - name: verify tarball + tree sanity
+        run: tools/lint "${{ matrix.version }}"

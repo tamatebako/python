@@ -1,0 +1,173 @@
+name: release-src
+
+# Repack-on-bump ONLY (the PROGRESS/23 lesson): the diff-aware plan
+# (tools/build_matrix over Tfs::ReleaseDiff/Tfs::BuildPlan) rebuilds exactly
+# the versions whose inputs changed — a changed patch line, a moved
+# versions.yml entry, a shared tooling change (fail closed: everything) —
+# and carries every other version's asset forward from the previous release
+# as a sha256-verified copy (tools/copy_asset). The ruby factory fans this
+# out into per-line units (_release-line.yml) for 30+ versions across 5
+# lines; at this factory's scale one flat matrix does the same job — split
+# per-line when the version count grows.
+#
+# No compile-smoke gate (the ruby factory's smoke compiles PATCHED
+# translation units): the patch inventory is zero, so there is nothing to
+# compile-smoke. The build leg's extract-verify (diff -qr against the
+# staged tree) is the integrity gate. The smoke gate returns with the
+# first patch.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Tag to publish the source tarballs to
+        required: true
+        default: v0.0.0
+
+jobs:
+  plan:
+    name: plan the release (diff-aware)
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.emit.outputs.build }}
+      copies: ${{ steps.emit.outputs.copies }}
+      previous_tag: ${{ steps.emit.outputs.previous_tag }}
+      build_count: ${{ steps.emit.outputs.build_count }}
+      copies_count: ${{ steps.emit.outputs.copies_count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: fetch tags (previous-release diff base)
+        run: git fetch --tags --force
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+      - id: emit
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+        run: |
+          build=$(tools/build_matrix "$RELEASE_TAG" --build)
+          copies=$(tools/build_matrix "$RELEASE_TAG" --copies)
+          previous_tag=$(tools/build_matrix "$RELEASE_TAG" --previous-tag)
+          {
+            echo "build=$build"
+            echo "copies=$copies"
+            echo "previous_tag=$previous_tag"
+            # Leg counts drive the job-level if: guards (an unguarded
+            # empty matrix poisons the run conclusion — the ruby factory's
+            # v0.2.15 lesson).
+            echo "build_count=$(jq '.include | length' <<< "$build")"
+            echo "copies_count=$(jq '.include | length' <<< "$copies")"
+          } >> "$GITHUB_OUTPUT"
+          # Mirror the plan to the LOG: values written only to
+          # $GITHUB_OUTPUT leave no diagnosable record when the legs skip
+          # (the ruby factory's v0.2.24 zero-plan failure).
+          echo "plan: tag=$RELEASE_TAG previous_tag=${previous_tag:-<none>} build=$(jq '.include | length' <<< "$build") copies=$(jq '.include | length' <<< "$copies")"
+          if [ -n "$previous_tag" ]; then
+            echo "changed paths ($previous_tag..$RELEASE_TAG): $(git diff --name-only "$previous_tag..$RELEASE_TAG" 2>/dev/null || git diff --name-only "$previous_tag..HEAD" | paste -sd' ' -)"
+          else
+            echo "changed paths: <no previous tag — full build>"
+          fi
+
+  build:
+    name: build ${{ matrix.version }}
+    needs: plan
+    if: needs.plan.outputs.build_count != '0'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.build) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - name: validate manifests against schema
+        run: bundle exec tools/validate_manifests
+      - name: stage the source tree
+        run: tools/prepare "${{ matrix.version }}" "$PWD/build"
+      - name: package
+        working-directory: build
+        # Deterministic roll (README § "Reproducible tarballs"): the
+        # published asset's sha256 is content-addressed — identical trees
+        # must package to identical bytes, or downstream caches and re-cut
+        # provenance break. Clamp all tar metadata; the gzip header is
+        # already MTIME=0 via the pipe. ubuntu runner ⇒ GNU tar.
+        run: |
+          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+            -czf "${{ matrix.asset }}" "${{ matrix.tree }}"
+          sha256sum "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256"
+      - name: extract-verify
+        working-directory: build
+        run: |
+          mkdir verify
+          tar -xzf "${{ matrix.asset }}" -C verify
+          diff -qr "${{ matrix.tree }}" "verify/${{ matrix.tree }}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tfs-python-${{ matrix.version }}-src
+          path: build/${{ matrix.asset }}*
+          retention-days: 1
+
+  copy:
+    name: copy ${{ matrix.asset }}
+    needs: plan
+    if: needs.plan.outputs.copies_count != '0'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.copies) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+      - name: download + verify against the previous release's SHA256SUMS
+        run: tools/copy_asset "${{ needs.plan.outputs.previous_tag }}" "${{ matrix.asset }}" "$PWD/dist"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tfs-python-${{ matrix.version }}-src
+          path: dist/${{ matrix.asset }}*
+          retention-days: 1
+
+  publish:
+    name: publish release
+    needs: [plan, build, copy]
+    # Every leg succeeded (or there was nothing to do): a failed build
+    # blocks the publish rather than shipping its stale copies. always() is
+    # LOAD-BEARING: a job-level if without a status-check function is
+    # implicitly ANDed with success(), and a skipped need makes success()
+    # false (the ruby factory's v0.2.24 zero-leg failure).
+    if: ${{ always() && needs.plan.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') && (needs.copy.result == 'success' || needs.copy.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Diagnosability first: needs.<job>.result is evaluated server-side,
+      # so echo exactly what the gate saw before doing anything else.
+      - name: needs results (publish gate diagnostic)
+        run: |
+          echo "plan.result  = ${{ needs.plan.result }}"
+          echo "build.result = ${{ needs.build.result }}"
+          echo "copy.result  = ${{ needs.copy.result }}"
+          echo "needs (full) = ${{ toJSON(needs) }}"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: tfs-python-*-src*
+          path: dist
+          merge-multiple: true
+      - name: SHA256SUMS
+        working-directory: dist
+        run: |
+          cat *.sha256 > SHA256SUMS
+          rm -f *.sha256
+      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          tag_name: ${{ github.event_name == 'push' && github.ref_name || inputs.release_tag }}
+          files: |
+            dist/*.tar.gz
+            dist/SHA256SUMS

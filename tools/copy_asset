@@ -1,0 +1,27 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/copy_asset <previous-tag> <asset> <dest-dir>
+#
+# Carries one unchanged asset (e.g. tfs-python-3.13.15-src.tar.gz) forward
+# from the PREVIOUS tamatebako/python release into <dest-dir>,
+# sha256-verified against that release's published SHA256SUMS, and writes
+# <asset>.sha256 next to it (the format release-src's publish job folds
+# into the new release's SHA256SUMS). Every failure is named and fails the
+# leg (Tfs::ReleaseCopier): a bad copy never ships unverified bytes.
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+
+tag, asset, dest = ARGV
+if [tag, asset, dest].any?(&:nil?)
+  abort "usage: tools/copy_asset <previous-tag> <asset> <dest-dir>"
+end
+
+begin
+  sha256 = Tfs::ReleaseCopier.new(tag).copy(asset, dest)
+rescue Tfs::ReleaseCopier::Error => e
+  abort "tools/copy_asset: #{e.message}"
+end
+
+puts "copied #{asset} from #{tag} (sha256 #{sha256}, verified against the published SHA256SUMS)"

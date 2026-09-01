@@ -1,0 +1,86 @@
+name: release-monitor
+
+on:
+  schedule:
+    - cron: "43 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  detect:
+    name: detect new python releases
+    runs-on: ubuntu-latest
+    outputs:
+      versions: ${{ steps.detect.outputs.versions }}
+      count: ${{ steps.detect.outputs.count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - id: detect
+        run: |
+          out=$(bundle exec tools/monitor --detect)
+          echo "versions=$out" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq '.version | length' <<< "$out")" >> "$GITHUB_OUTPUT"
+
+  onboard:
+    name: onboard ${{ matrix.version }}
+    needs: detect
+    if: needs.detect.outputs.count != '0'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.detect.outputs.versions) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - name: onboard (versions.yml pin + fetch/extract verify)
+        run: bundle exec tools/monitor --onboard "${{ matrix.version }}"
+      - name: job summary
+        if: always()
+        run: cat monitor-result.json >> "$GITHUB_STEP_SUMMARY"
+      - name: open pull request
+        if: success()
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: onboard/python-${{ matrix.version }}
+          title: "Onboard python ${{ matrix.version }}"
+          commit-message: "Onboard python ${{ matrix.version }} (release monitor)"
+          body: |
+            Automated onboarding of python **${{ matrix.version }}** by the release monitor.
+
+            - `versions.yml` entry added (official URL + sha256 of the fetched tarball)
+            - the new entry re-verified end-to-end (fetch, sha256, extract, tree sanity)
+
+            MERGE GATE: if ${{ matrix.version }} opens a NEW line, check it against
+            xml2rfc's `requires_python` first (versions.yml's header comment — the
+            PROGRESS/25 lesson: pin to what the dependency graph supports, not the
+            newest). A patch release of a tracked line merges as-is.
+
+            Merging runs the lint matrix for ${{ matrix.version }}; tag `v*` afterwards to build `tfs-python-${{ matrix.version }}-src.tar.gz` via release-src.
+      - name: file issue on failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Onboard python ${{ matrix.version }}: verification failed" \
+            --body "The release monitor could not onboard python **${{ matrix.version }}** -- the tarball fetch or the tree sanity check failed. No release was made.
+
+          The failure detail is under \`error\`:
+          \`\`\`json
+          $(cat monitor-result.json)
+          \`\`\`"
+
+  # No downstream dispatch yet (the ruby factory notifies
+  # tebako-runtime-ruby here): tebako-runtime-python does not exist —
+  # it is TODO.python/02. Add the dispatch when that repo lands.

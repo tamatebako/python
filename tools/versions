@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/versions
+# Prints the supported version list from versions.yml as a compact
+# GitHub-Actions matrix document: {"version":["3.12.14",...]} — one leg
+# per version.
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+require "json"
+
+puts JSON.generate({ version: Tfs::Versions.new.names })

@@ -1,0 +1,29 @@
+# JSON Schema (draft 2020-12) for patches/<line>/patch-<line>[.<patch>].yaml
+# line patch manifests. Shape mirrors tamatebako/ruby's patches schema; the
+# patch inventory is ZERO today (patches/README.md) — this schema exists so
+# the first patch lands in a validated harness, not a new one.
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: tfs-python line patch manifest
+type: object
+required: [version, patches]
+additionalProperties: false
+properties:
+  version:
+    type: string
+    pattern: "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+  patches:
+    type: array
+    items:
+      type: object
+      required: [feature, file]
+      additionalProperties: false
+      properties:
+        feature:
+          type: string
+          pattern: "^[a-z0-9]+(_[a-z0-9]+)*$"
+        file:
+          type: string
+          pattern: "^(\\.\\./[0-9]+\\.[0-9]+/)?[a-z0-9]+(_[a-z0-9]+)*\\.patch$"
+        version:
+          type: string
+          pattern: "^[0-9]+$"

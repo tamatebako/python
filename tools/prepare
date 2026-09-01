@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/prepare <version> [outdir]
+# Builds <outdir>/tfs-python-<version>-src: the pristine upstream tree
+# fetched from the official URL (versions.yml), sha256-verified, cached
+# under .cache/tarballs (override with TFS_CACHE_DIR), and staged under
+# its release name. The patch inventory is zero today; application lands
+# in Tfs::SourcePrep#prepare when the first patch exists.
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+require "fileutils"
+
+version = ARGV[0] or abort "usage: tools/prepare <version> [outdir]"
+outdir = File.expand_path(ARGV[1] || "build")
+cache_dir = ENV.fetch("TFS_CACHE_DIR", Tfs::SourcePrep::DEFAULT_CACHE_DIR)
+
+FileUtils.mkdir_p(outdir)
+prep = Tfs::SourcePrep.new(versions: Tfs::Versions.new, cache_dir: cache_dir)
+puts prep.prepare(version, outdir)

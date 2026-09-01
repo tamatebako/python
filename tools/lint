@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/lint <version>
+# Fetches the version's official tarball (sha256-verified), extracts it,
+# and asserts the tree is a CPython source tree (Tfs::SourcePrep::TREE_MARKERS).
+# The zero-patch analog of the ruby factory's git apply --check gate: when
+# the first patch lands, its apply check joins this lint.
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+require "tmpdir"
+
+version = ARGV[0] or abort "usage: tools/lint <version>"
+cache_dir = ENV.fetch("TFS_CACHE_DIR", Tfs::SourcePrep::DEFAULT_CACHE_DIR)
+
+prep = Tfs::SourcePrep.new(versions: Tfs::Versions.new, cache_dir: cache_dir)
+Dir.mktmpdir("tfs-lint-") do |outdir|
+  prep.check(version, outdir)
+  puts "OK #{version} (tarball verified, tree sanity passed)"
+end

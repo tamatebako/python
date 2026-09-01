@@ -1,0 +1,26 @@
+# JSON Schema (draft 2020-12) for versions.yml — the supported CPython versions.
+$schema: "https://json-schema.org/draft/2020-12/schema"
+title: tfs-python versions manifest
+type: object
+required: [versions]
+additionalProperties: false
+properties:
+  versions:
+    type: object
+    minProperties: 1
+    additionalProperties: false
+    patternProperties:
+      "^[0-9]+\\.[0-9]+\\.[0-9]+$":
+        type: object
+        required: [url, sha256, line]
+        additionalProperties: false
+        properties:
+          url:
+            type: string
+            pattern: "^https://www\\.python\\.org/ftp/python/[0-9]+\\.[0-9]+\\.[0-9]+/Python-[0-9]+\\.[0-9]+\\.[0-9]+\\.tar\\.xz$"
+          sha256:
+            type: string
+            pattern: "^[0-9a-f]{64}$"
+          line:
+            type: string
+            pattern: "^[0-9]+\\.[0-9]+$"

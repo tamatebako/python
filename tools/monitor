@@ -1,0 +1,31 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/monitor --detect | --onboard <version>
+# Release monitor driver:
+#   --detect            prints a GitHub-Actions matrix document of official
+#                       CPython releases not yet onboarded: {"version":[...]}
+#   --onboard <version> onboards the version (versions.yml pin + verify),
+#                       writes monitor-result.json, and exits 0 when the
+#                       new entry verifies, 1 otherwise (never silent).
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+require "json"
+
+case ARGV[0]
+when "--detect"
+  puts JSON.generate({ version: Tfs::PythonReleases.fetch.new_versions(Tfs::Versions.new).map(&:name) })
+when "--onboard"
+  version = ARGV[1] or abort "usage: tools/monitor --onboard <version>"
+  result = Tfs::Onboarder.new(releases: Tfs::PythonReleases.fetch).onboard(version)
+  File.write("monitor-result.json", JSON.pretty_generate(result.to_h) + "\n")
+  if result.verified?
+    puts "OK #{version} onboarded (#{result.written.size} files written)"
+  else
+    warn "FAIL #{version}: #{result.error}"
+  end
+  exit(result.verified? ? 0 : 1)
+else
+  abort "usage: tools/monitor --detect | --onboard <version>"
+end

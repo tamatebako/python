@@ -15,11 +15,26 @@
 #   Python/pylifecycle.o — died on setenv (PY_COERCE_C_LOCALE defined)
 #   Python/pytime.o      — died on the non-MS_WINDOWS timeval branch
 #   Programs/python.o    — the entry TU (wmain under MS_WINDOWS)
+#   Objects/exceptions.o — died on the MS_WINDOWS-gated
+#                          #include "errmap.h" (tebako-runtime-python PR
+#                          #16, run 34692047817: the POSIX compile line
+#                          carries no -I$(srcdir)/PC until
+#                          configure_pc_include_msys)
 # plus any .c target the scenario's patch set names (none today: the
 # series touches configure.ac/configure/headers — compiling the wall TUs
 # is what proves the header/configure patches). No link, no exts, no
 # install: the full runtime build stays the runtime factory's job
 # (TODO.python/05 item 2).
+#
+# Coverage contract (the v0.3.0 gate-gap lesson): the smoke IS the
+# factory's shape — in-tree configure + native make, the same scenario
+# tree — narrowed only in the TARGET SET (the factory runs full make; the
+# smoke compiles the wall set). The set is therefore a regression list:
+# every TU that ever hard-stopped the factory's windows build joins
+# WALL_OBJECTS in the same PR that fixes it, so the gate reproduces the
+# failure before the fix and proves it after. TUs outside the set are
+# covered only at the factory — a deliberate delta (link and full-build
+# time stay downstream), safe only while this convention holds.
 #
 # The windows-msys leg runs NATIVELY inside the msys2 ucrt64 shell on a
 # windows runner — not a cross compile: config.guess sees
@@ -36,7 +51,7 @@ require "fileutils"
 require "open3"
 require "optparse"
 
-WALL_OBJECTS = %w[Python/pylifecycle.o Python/pytime.o Programs/python.o].freeze
+WALL_OBJECTS = %w[Python/pylifecycle.o Python/pytime.o Programs/python.o Objects/exceptions.o].freeze
 
 PLATFORM_CONFIG = {
   "windows-msys" => { "env" => {}, "configure" => ["--disable-shared"] },

@@ -19,6 +19,8 @@ patches:
     file: pyport_ms_windows_msys.patch
   - feature: configure_machdep_msys
     file: configure_machdep_msys.patch
+  - feature: configure_pc_include_msys
+    file: configure_pc_include_msys.patch
   - feature: configure_c_locale_coercion_msys
     file: configure_c_locale_coercion_msys.patch
   - feature: pycore_time_timeval_msys

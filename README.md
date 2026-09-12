@@ -87,7 +87,9 @@ per-version sum is the trust anchor the runtime factory verifies against.
 - `tools/compile_smoke <version> [outdir] [--platform NAME]` — the compile
   gate: stages the scenario tree, configures in-tree, and compiles the
   wall translation units (the tebako-runtime-python PR #2 evidence:
-  `Python/pylifecycle.o`, `Python/pytime.o`, `Programs/python.o`) plus any
+  `Python/pylifecycle.o`, `Python/pytime.o`, `Programs/python.o`; the
+  PR #16 errmap wall: `Objects/exceptions.o` — the set is a regression
+  list, every factory windows wall TU joins it in the fixing PR) plus any
   `.c` target the scenario's patches name. windows-msys runs natively
   under msys2 ucrt64 (never a cross compile).
 - `tools/smoke_matrix <release-tag>` — the release compile-smoke matrix:

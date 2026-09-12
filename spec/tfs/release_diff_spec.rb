@@ -89,6 +89,49 @@ RSpec.describe Tfs::ReleaseDiff do
     end
   end
 
+  describe "#changed_scenarios (the per-scenario fault-isolation axis)" do
+    def diff_with(paths)
+      described_class.new("v0.1.2", git: fake_git(tags: tags, diffs: { "v0.1.1..v0.1.2" => paths.join("\n") }))
+    end
+
+    it "is nil with no previous tag (every scenario of every line)" do
+      expect(described_class.new("v0.0.1", git: fake_git(tags: [])).changed_scenarios).to be_nil
+    end
+
+    it "attributes an _msys-suffixed patch to the windows-msys scenario only" do
+      diff = diff_with(["patches/3.14/pyport_ms_windows_msys.patch"])
+      expect(diff.changed_scenarios).to eq({ "3.14" => ["windows-msys"] })
+    end
+
+    it "attributes a patch-versioned _msys patch the same way" do
+      diff = diff_with(["patches/3.14/pyport_ms_windows_msys_7.patch"])
+      expect(diff.changed_scenarios).to eq({ "3.14" => ["windows-msys"] })
+    end
+
+    it "attributes a line's manifest change to every scenario (selection rules moved)" do
+      diff = diff_with(["patches/3.14/patch-3.14.yaml"])
+      expect(diff.changed_scenarios).to eq({ "3.14" => Tfs::Versions::SCENARIOS })
+    end
+
+    it "attributes a base patch wide (fail closed)" do
+      diff = diff_with(["patches/3.14/getpath_quirk.patch"])
+      expect(diff.changed_scenarios).to eq({ "3.14" => Tfs::Versions::SCENARIOS })
+    end
+
+    it "unions attributions per line across a mixed change set" do
+      diff = diff_with(["patches/3.14/pyport_ms_windows_msys.patch", "patches/3.14/patch-3.14.yaml",
+                        "patches/3.13/other_msys.patch"])
+      result = diff.changed_scenarios
+      expect(result.keys).to contain_exactly("3.14", "3.13")
+      expect(result["3.14"]).to match_array(Tfs::Versions::SCENARIOS)
+      expect(result["3.13"]).to eq(["windows-msys"])
+    end
+
+    it "is empty when the diff touches no patch path" do
+      expect(diff_with(["tools/prepare", "versions.yml"]).changed_scenarios).to eq({})
+    end
+  end
+
   describe "#previous_file" do
     it "reads a file at the previous release tag" do
       git = fake_git(tags: tags, shows: { "v0.1.1:versions.yml" => "versions: {}\n" })

@@ -1,0 +1,69 @@
+# _compile-smoke.yml — the ONE compile-smoke leg shape (TODO.python/05's
+# gate, the tamatebako/ruby smoke-leg role at this factory's scale):
+# tools/compile_smoke on the runner the scenario belongs to. Called by
+# lint.yml (the PR-time oracle — tools/versions --smoke) and by
+# release-src.yml (the publish gate — tools/smoke_matrix). Never
+# dispatched directly.
+#
+# The windows-msys leg runs NATIVELY under msys2 ucrt64 on a windows
+# runner (not a cross compile — config.guess must see
+# x86_64-w64-mingw32 for the patched configure's mingw arms); the msys
+# ruby package drives the tooling, exactly the runtime factory's windows
+# leg shape. The linux-gnu leg needs no setup beyond ruby (the runner's
+# cc/make compile the wall TUs).
+
+name: _compile-smoke
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'The CPython version to smoke (e.g. 3.14.7)'
+        required: true
+        type: string
+      platform:
+        description: 'The scenario: linux-gnu | windows-msys (Tfs::Versions::SCENARIOS)'
+        required: true
+        type: string
+      runs_on:
+        description: 'The scenario''s runner (ubuntu-latest | windows-2022)'
+        required: true
+        type: string
+
+jobs:
+  smoke:
+    name: compile-smoke ${{ inputs.version }} (${{ inputs.platform }})
+    runs-on: ${{ inputs.runs_on }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup MSys2 (ucrt64)
+        if: inputs.platform == 'windows-msys'
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2
+        with:
+          msystem: ucrt64
+          path-type: minimal
+          update: true
+
+      # git for the apply step, make + the ucrt64 gcc for the compile,
+      # the msys ruby for the tooling. No openssl/zlib dev packages: the
+      # wall-TU set (pylifecycle/pytime/Programs/python) needs none.
+      - name: Install the ucrt64 toolchain
+        if: inputs.platform == 'windows-msys'
+        shell: msys2 {0}
+        run: pacman -S --needed --noconfirm git make ruby mingw-w64-ucrt-x86_64-toolchain
+
+      - name: Setup Ruby (the tooling's interpreter)
+        if: inputs.platform != 'windows-msys'
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+
+      - name: compile_smoke (windows)
+        if: inputs.platform == 'windows-msys'
+        shell: msys2 {0}
+        run: tools/compile_smoke "${{ inputs.version }}" "$PWD/build/compile-smoke" --platform "${{ inputs.platform }}"
+
+      - name: compile_smoke (POSIX)
+        if: inputs.platform != 'windows-msys'
+        run: tools/compile_smoke "${{ inputs.version }}" "$PWD/build/compile-smoke" --platform "${{ inputs.platform }}"

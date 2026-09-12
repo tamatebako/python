@@ -1,6 +1,12 @@
 # Supported upstream CPython versions — the tfs-python src release set
 # (schema/versions.schema.yml).
 #
+# scenarios: platform scenarios shipped as src release assets (absent
+# means linux-gnu only; linux-gnu is the mandatory unsuffixed
+# back-compat asset — the pristine upstream tree). windows-msys carries
+# the line's msys2/ucrt64 patch set (patches/<line>/, TODO.python/05) —
+# declared only for lines whose patch manifest exists.
+#
 # Lines: 3.11, 3.12, 3.13, 3.14. The pin follows the DEPENDENCY GRAPH, not the
 # newest upstream line — the PROGRESS/25 lesson (2026-08-30): the chocolatey
 # feed declared xml2rfc 3.30.2 -> python3 [3.8.0, 3.13.0), "latest python"
@@ -8,7 +14,7 @@
 # that broke the install. The driving payload is xml2rfc: PyPI reports
 # requires_python ">=3.10" for xml2rfc 3.34.0 (checked 2026-09-01), so 3.11
 # through 3.14 are all in range. A release-monitor PR onboarding a NEW line
-# (e.g. 3.14) must be checked against xml2rfc's requires_python before merge
+# (e.g. 3.15) must be checked against xml2rfc's requires_python before merge
 # — the monitor detects, a human gates. 3.11.16 was human-gated IN by the
 # owner 2026-09-05 (3.11 is security-supported until 2027-10); 3.10 stays
 # out (EOL 2026-10-31); 3.15.0 stays un-onboarded until its own gate.
@@ -36,3 +42,6 @@ versions:
     url: https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz
     sha256: 3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81
     line: '3.14'
+    # The tip line carries the windows-msys port (patches/3.14/) —
+    # TODO.python/05 item 1. The 3.13 series follows in a later PR.
+    scenarios: [linux-gnu, windows-msys]

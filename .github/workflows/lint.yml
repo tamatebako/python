@@ -41,8 +41,47 @@ jobs:
           bundler-cache: true
       - name: validate manifests against schema
         run: bundle exec tools/validate_manifests
-      # The zero-patch gate: fetch the pinned tarball, verify its sha256,
-      # extract, assert a CPython source tree. When the first patch lands
-      # its git apply --check joins this step (tools/lint).
-      - name: verify tarball + tree sanity
+      # Fetch the pinned tarball, verify its sha256, extract, assert a
+      # CPython source tree — and, for a patched line, git apply --check
+      # every patch the line's manifest selects (tools/lint).
+      - name: verify tarball + tree sanity + patches apply-clean
         run: tools/lint "${{ matrix.version }}"
+
+  # The PR-time compile gate (TODO.python/05): one leg per (version x
+  # patch-carrying scenario) — tools/versions --smoke. This is where the
+  # msys2/ucrt64 patch series meets a real ucrt64 toolchain; the release
+  # gate (release-src.yml's smoke) re-runs the changed lines at the tag.
+  smoke-legs:
+    name: emit the compile-smoke matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.emit.outputs.matrix }}
+      leg_count: ${{ steps.emit.outputs.leg_count }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+      - id: emit
+        run: |
+          matrix=$(tools/versions --smoke)
+          {
+            echo "matrix=$matrix"
+            # The count drives the smoke job's if: guard (an unguarded
+            # empty matrix poisons the run conclusion).
+            echo "leg_count=$(jq '.include | length' <<< "$matrix")"
+          } >> "$GITHUB_OUTPUT"
+          echo "compile-smoke legs: $(jq -r '.include[] | "\(.version)/\(.platform)"' <<< "$matrix" | paste -sd' ' -)"
+
+  smoke:
+    name: smoke ${{ matrix.version }} (${{ matrix.platform }})
+    needs: smoke-legs
+    if: needs.smoke-legs.outputs.leg_count != '0'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.smoke-legs.outputs.matrix) }}
+    uses: ./.github/workflows/_compile-smoke.yml
+    with:
+      version: ${{ matrix.version }}
+      platform: ${{ matrix.platform }}
+      runs_on: ${{ matrix.platform == 'windows-msys' && 'windows-2022' || 'ubuntu-latest' }}

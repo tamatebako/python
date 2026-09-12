@@ -5,3 +5,4 @@
 # bundler
 /Gemfile.lock
 /vendor/
+/.vendor/

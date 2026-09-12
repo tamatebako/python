@@ -5,23 +5,28 @@ require "yaml"
 module Tfs
   # Reads versions.yml: the manifest of supported upstream CPython versions.
   # Exposes each version's url / sha256 / line through Entry value objects.
+  # A version's +scenarios+ declare which platform scenarios it ships
+  # patched-source releases for (subset of SCENARIOS; absent means the
+  # linux-gnu scenario only, which is also the unsuffixed back-compat
+  # asset and therefore mandatory in every list).
   #
-  # Unlike the ruby factory there is NO scenario axis today: with a zero
-  # patch inventory (patches/README.md) the staged tree is identical for
-  # every platform, so each version ships exactly one src tarball. A
-  # platform-conditional patch introduces scenarios here (SCENARIOS +
-  # per-entry lists, as in tamatebako/ruby) together with the patch itself.
+  # The scenario axis arrived with the first patch set (TODO.python/05,
+  # the windows-msys port): a scenario tree is the pristine tree plus the
+  # scenario's patch set, so the linux-gnu asset stays byte-identical
+  # with the pristine upstream tarball while _msys-suffixed patches apply
+  # only to the windows-msys tree.
   class Versions
     # One supported CPython version.
     class Entry
-      def initialize(name:, url:, sha256:, line:)
+      def initialize(name:, url:, sha256:, line:, scenarios:)
         @name = name
         @url = url
         @sha256 = sha256
         @line = line
+        @scenarios = scenarios
       end
 
-      attr_reader :name, :url, :sha256, :line
+      attr_reader :name, :url, :sha256, :line, :scenarios
 
       def tarball_name
         "Python-#{name}.tar.xz"
@@ -30,16 +35,24 @@ module Tfs
       def src_tree_name
         "tfs-python-#{name}-src"
       end
-
-      def asset_name
-        "#{src_tree_name}.tar.gz"
-      end
     end
 
     DEFAULT_PATH = File.expand_path("../../../versions.yml", __dir__).freeze
     NAME_FORMAT = /\A\d+\.\d+\.\d+\z/.freeze
     LINE_FORMAT = /\A\d+\.\d+\z/.freeze
     SHA256_FORMAT = /\A[0-9a-f]{64}\z/.freeze
+
+    # Platform scenarios a version may ship, in canonical order.
+    SCENARIOS = %w[linux-gnu windows-msys].freeze
+    DEFAULT_SCENARIOS = %w[linux-gnu].freeze
+
+    # scenario => release build rows (platform / asset suffix). Unlike
+    # the ruby factory there is no pass axis: nothing in the CPython
+    # port needs a two-pass tree.
+    SCENARIO_BUILDS = {
+      "linux-gnu" => [{ platform: "linux-gnu", suffix: "" }].freeze,
+      "windows-msys" => [{ platform: "windows-msys", suffix: "-windows-msys" }].freeze
+    }.freeze
 
     include Enumerable
 
@@ -64,6 +77,17 @@ module Tfs
       entry
     end
 
+    # The flat (version x scenario build) release matrix: one row per
+    # coherent build, e.g. {version: "3.14.7", platform: "windows-msys",
+    # suffix: "-windows-msys"}. Consumed by tools/versions --scenarios.
+    def builds
+      @entries.flat_map do |entry|
+        entry.scenarios.flat_map do |scenario|
+          SCENARIO_BUILDS.fetch(scenario).map { |build| { version: entry.name, **build } }
+        end
+      end
+    end
+
     private
 
     def parse(manifest_path)
@@ -82,17 +106,23 @@ module Tfs
       url = data["url"]
       sha256 = data["sha256"]
       line = data["line"]
-      validate!(manifest_path, name, url, sha256, line)
-      Entry.new(name: name, url: url, sha256: sha256, line: line)
+      scenarios = data.fetch("scenarios", DEFAULT_SCENARIOS)
+      validate!(manifest_path, name, url, sha256, line, scenarios)
+      Entry.new(name: name, url: url, sha256: sha256, line: line, scenarios: scenarios)
     end
 
-    def validate!(manifest_path, name, url, sha256, line)
+    def validate!(manifest_path, name, url, sha256, line, scenarios)
+      unknown = scenarios.is_a?(Array) ? scenarios - SCENARIOS : []
       problem =
         if !name.is_a?(String) || !NAME_FORMAT.match?(name) then "name must look like '3.13.15'"
         elsif !url.is_a?(String) || url.empty? then "url missing"
         elsif !sha256.is_a?(String) || !SHA256_FORMAT.match?(sha256) then "sha256 must be 64 hex chars"
         elsif !line.is_a?(String) || !LINE_FORMAT.match?(line) then "line must look like '3.13'"
         elsif !name.start_with?("#{line}.") then "line must be the major.minor prefix of the version"
+        elsif !scenarios.is_a?(Array) || scenarios.empty? then "scenarios must be a non-empty array"
+        elsif unknown.any? then "unknown scenarios #{unknown.inspect} (known: #{SCENARIOS.join(', ')})"
+        elsif scenarios.uniq.size != scenarios.size then "scenarios must not repeat"
+        elsif !scenarios.include?("linux-gnu") then "scenarios must include linux-gnu (unsuffixed back-compat asset)"
         end
       raise ArgumentError, "#{manifest_path}: version #{name.inspect}: #{problem}" if problem
     end

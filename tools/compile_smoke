@@ -1,0 +1,100 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/compile_smoke <version> [outdir] [--platform NAME]
+#
+# The windows port's compile gate (TODO.python/05): stages the version's
+# patched tree for one scenario (the Tfs::SourcePrep apply step), runs
+# ./configure IN TREE (the runtime factory's shape — tebako-runtime-python
+# configures in-tree), and compiles a bounded target set with a bounded
+# make. The cheapest compile that proves the PR #2 wall is cleared:
+# configure completes on ucrt64 (upstream has zero mingw cases), and the
+# translation units that hard-stopped the round-5 windows legs compile.
+#
+# The wall-TU set (tebako-runtime-python PR #2, round 5 evidence):
+#   Python/pylifecycle.o — died on setenv (PY_COERCE_C_LOCALE defined)
+#   Python/pytime.o      — died on the non-MS_WINDOWS timeval branch
+#   Programs/python.o    — the entry TU (wmain under MS_WINDOWS)
+# plus any .c target the scenario's patch set names (none today: the
+# series touches configure.ac/configure/headers — compiling the wall TUs
+# is what proves the header/configure patches). No link, no exts, no
+# install: the full runtime build stays the runtime factory's job
+# (TODO.python/05 item 2).
+#
+# The windows-msys leg runs NATIVELY inside the msys2 ucrt64 shell on a
+# windows runner — not a cross compile: config.guess sees
+# x86_64-w64-mingw32 and the patched configure takes its mingw arms. The
+# linux-gnu leg (a manifest change attributes wide — ReleaseDiff's
+# fail-closed rule) runs the same wall set on the POSIX tree. --prefix is
+# deliberately absent: the factory's A:/t mount-root prefix and its
+# make-parse landmine fix live downstream (tebako-runtime-python round 5);
+# the smoke configures with the default prefix and never installs.
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+require "fileutils"
+require "open3"
+require "optparse"
+
+WALL_OBJECTS = %w[Python/pylifecycle.o Python/pytime.o Programs/python.o].freeze
+
+PLATFORM_CONFIG = {
+  "windows-msys" => { "env" => {}, "configure" => ["--disable-shared"] },
+  # The pristine-scenario leg: a manifest change attributes wide (the
+  # diff's fail-closed rule), so the gate must be able to compile the
+  # POSIX tree too — with nothing patched, this leg re-proves upstream.
+  "linux-gnu" => { "env" => {}, "configure" => [] }
+}.freeze
+
+def native_platform
+  case RUBY_PLATFORM
+  when /msys|mingw|cygwin/ then "windows-msys"
+  # darwin maps to the POSIX scenario for PATCH SELECTION (the macOS
+  # runtime legs consume the unsuffixed tree — tools/apply's rule); the
+  # compile itself then runs the host's machdep, a local signal only —
+  # CI's linux-gnu leg runs on ubuntu.
+  when /linux/, /darwin/ then "linux-gnu"
+  else abort "tools/compile_smoke: cannot detect platform #{RUBY_PLATFORM}; pass --platform"
+  end
+end
+
+options = { platform: nil }
+OptionParser.new do |parser|
+  parser.banner = "usage: tools/compile_smoke <version> [outdir] [--platform NAME]"
+  parser.on("--platform NAME", "windows-msys | linux-gnu (default: host)") { |v| options[:platform] = v }
+end.parse!
+
+version = ARGV[0] or abort "usage: tools/compile_smoke <version> [outdir] [--platform NAME]"
+outdir = File.expand_path(ARGV[1] || "build/compile-smoke")
+platform = options[:platform] || native_platform
+config = PLATFORM_CONFIG.fetch(platform) { abort "tools/compile_smoke: no toolchain config for platform #{platform.inspect}" }
+cache_dir = ENV.fetch("TFS_CACHE_DIR", Tfs::SourcePrep::DEFAULT_CACHE_DIR)
+
+selection = Tfs::PatchSelection.new
+patches = selection.for(version, platform: platform)
+objects = (WALL_OBJECTS + patches.map(&:target_file)
+                                 .select { |target| target.end_with?(".c") }
+                                 .map { |target| target.sub(/\.c\z/, ".o") }).uniq
+
+FileUtils.mkdir_p(outdir)
+prep = Tfs::SourcePrep.new(versions: Tfs::Versions.new,
+                           selection: selection,
+                           cache_dir: cache_dir)
+src = prep.prepare(version, outdir, platform: platform)
+
+configure = File.join(src, "configure")
+out, err, status = Open3.capture3(config["env"], configure, *config["configure"], chdir: src)
+unless status.success?
+  tail = (out.lines + err.lines).last(25).join
+  abort "tools/compile_smoke: configure failed for #{version} (#{platform})\n#{tail}"
+end
+
+failing_output = []
+failed = objects.reject do |object|
+  out, err, status = Open3.capture3("make", "-j2", object, chdir: src)
+  failing_output.push("== make #{object} ==\n#{(out.lines + err.lines).last(30).join}") unless status.success?
+  status.success?
+end
+abort "tools/compile_smoke: FAIL #{version} (#{platform}): #{failed.join(', ')} did not compile\n#{failing_output.join}" unless failed.empty?
+
+puts "OK #{version} (#{platform}): configure green, #{objects.size} wall translation units compile (#{objects.join(', ')})"

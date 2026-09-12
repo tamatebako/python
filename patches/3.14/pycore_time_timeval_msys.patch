@@ -1,0 +1,29 @@
+# pycore_time_timeval_msys.patch
+#
+# Target:  Include/internal/pycore_time.h (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0096
+#          "pycore_time: fix missing timeval" (ported verbatim; upstream
+#          issue https://github.com/python/cpython/issues/82863)
+#
+# Wall item (tebako-runtime-python PR #2, round 5): pytime.c takes its
+# non-MS_WINDOWS branch and dies on the timeval.tv_sec type conflict
+# (run 33870309676, job 101014723979). pyport_ms_windows_msys.patch makes
+# the MS_WINDOWS branch visible; this patch is its pair — pytime.c's
+# MS_WINDOWS branch gets struct timeval from winsock2.h, and
+# pycore_time.h's forward declaration must be visible under MS_WINDOWS
+# (upstream guards it on __clang__ only, which never fires under the
+# ucrt64 gcc) so the internal time API prototypes see the type.
+
+diff --git a/Include/internal/pycore_time.h b/Include/internal/pycore_time.h
+index 2331247..edfcaef 100644
+--- a/Include/internal/pycore_time.h
++++ b/Include/internal/pycore_time.h
+@@ -59,7 +59,7 @@ extern "C" {
+ 
+ #include "pycore_runtime_structs.h" // _PyTimeFraction
+ 
+-#ifdef __clang__
++#ifdef MS_WINDOWS
+ struct timeval;
+ #endif
+ 

@@ -20,11 +20,64 @@ RSpec.describe Tfs::Versions do
     expect(entry.line).to eq("3.12")
   end
 
-  it "derives tarball, source-tree and asset names from the version" do
+  it "derives tarball and source-tree names from the version" do
     entry = versions.fetch("9.9.9")
     expect(entry.tarball_name).to eq("Python-9.9.9.tar.xz")
     expect(entry.src_tree_name).to eq("tfs-python-9.9.9-src")
-    expect(entry.asset_name).to eq("tfs-python-9.9.9-src.tar.gz")
+  end
+
+  it "defaults a version's scenarios to linux-gnu only" do
+    expect(versions.fetch("9.9.9").scenarios).to eq(["linux-gnu"])
+  end
+
+  it "expands the (version x scenario build) release matrix, one row per coherent build" do
+    manifest = manifest_with(<<~YAML)
+      3.14.7:
+        url: http://127.0.0.1:1/Python-3.14.7.tar.xz
+        sha256: "#{'0' * 64}"
+        line: "3.14"
+        scenarios: [linux-gnu, windows-msys]
+    YAML
+    expect(manifest.builds).to eq([
+                                    { version: "3.14.7", platform: "linux-gnu", suffix: "" },
+                                    { version: "3.14.7", platform: "windows-msys", suffix: "-windows-msys" }
+                                  ])
+  end
+
+  it "rejects an entry declaring an unknown scenario" do
+    expect do
+      manifest_with(<<~YAML)
+        3.14.7:
+          url: http://127.0.0.1:1/Python-3.14.7.tar.xz
+          sha256: "#{'0' * 64}"
+          line: "3.14"
+          scenarios: [linux-gnu, plan9]
+      YAML
+    end.to raise_error(ArgumentError, /unknown scenarios.*plan9/)
+  end
+
+  it "rejects an entry whose scenarios drop linux-gnu (the mandatory unsuffixed asset)" do
+    expect do
+      manifest_with(<<~YAML)
+        3.14.7:
+          url: http://127.0.0.1:1/Python-3.14.7.tar.xz
+          sha256: "#{'0' * 64}"
+          line: "3.14"
+          scenarios: [windows-msys]
+      YAML
+    end.to raise_error(ArgumentError, /must include linux-gnu/)
+  end
+
+  it "rejects an entry whose scenarios repeat" do
+    expect do
+      manifest_with(<<~YAML)
+        3.14.7:
+          url: http://127.0.0.1:1/Python-3.14.7.tar.xz
+          sha256: "#{'0' * 64}"
+          line: "3.14"
+          scenarios: [linux-gnu, linux-gnu]
+      YAML
+    end.to raise_error(ArgumentError, /must not repeat/)
   end
 
   it "raises KeyError for a version that is not in the manifest" do

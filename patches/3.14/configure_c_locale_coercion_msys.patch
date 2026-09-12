@@ -1,0 +1,66 @@
+# configure_c_locale_coercion_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0052
+#          "configure: Default to --without-c-locale-coercion on Windows"
+#          (configure.ac hunks ported verbatim; the generated-configure
+#          hunks are the hand-synced equivalents — this factory ships a
+#          configure-ready tarball, no autoreconf downstream)
+#
+# Wall item (tebako-runtime-python PR #2, round 5): pylifecycle.c:258's
+# setenv is the first hard stop. --with-c-locale-coercion defaults to yes
+# and AC_DEFINEs PY_COERCE_C_LOCALE, which compiles
+# _coerce_default_locale_settings() calling POSIX setenv — a function
+# ucrt does not declare (mingw-w64 stdlib.h has _putenv/_putenv_s only),
+# so the TU dies on the implicit declaration. The feature is Unix-only by
+# design (coerce the C locale to a UTF-8 one; Windows has no such
+# coercion target), so the Windows default is "no" and the whole block
+# compiles out. An explicit --with-c-locale-coercion still forces it on
+# (named opt-in, not a silent removal).
+
+diff --git a/configure.ac b/configure.ac
+index 967d34d..76a7fbb 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5140,11 +5140,14 @@ AC_MSG_RESULT([$with_pymalloc])
+ AC_MSG_CHECKING([for --with-c-locale-coercion])
+ AC_ARG_WITH(
+   [c-locale-coercion],
+-  [AS_HELP_STRING([--with-c-locale-coercion], [enable C locale coercion to a UTF-8 based locale (default is yes)])])
++  [AS_HELP_STRING([--with-c-locale-coercion], [enable C locale coercion to a UTF-8 based locale (default is yes on Unix, no on Windows)])])
+ 
+ if test -z "$with_c_locale_coercion"
+ then
+-    with_c_locale_coercion="yes"
++    case $host in
++      *-*-mingw*) with_c_locale_coercion="no";;
++      *) with_c_locale_coercion="yes";;
++    esac
+ fi
+ if test "$with_c_locale_coercion" != "no"
+ then
+diff --git a/configure b/configure
+index 2cb22a7..9f5920b 100755
+--- a/configure
++++ b/configure
+@@ -1927,7 +1927,7 @@ Optional Packages:
+   --with-pymalloc         enable specialized mallocs (default is yes)
+   --with-c-locale-coercion
+                           enable C locale coercion to a UTF-8 based locale
+-                          (default is yes)
++                          (default is yes on Unix, no on Windows)
+   --with-valgrind         enable Valgrind support (default is no)
+   --with-dtrace           enable DTrace support (default is no)
+   --with-libm=STRING      override libm math library to STRING (default is
+@@ -19096,7 +19096,10 @@ fi
+ 
+ if test -z "$with_c_locale_coercion"
+ then
+-    with_c_locale_coercion="yes"
++    case $host in
++      *-*-mingw*) with_c_locale_coercion="no";;
++      *) with_c_locale_coercion="yes";;
++    esac
+ fi
+ if test "$with_c_locale_coercion" != "no"
+ then

@@ -113,4 +113,33 @@ RSpec.describe Tfs::Onboarder do
       expect(result.written).to eq([])
     end
   end
+
+  it "inherits the line's scenario coverage when onboarding a new patch release" do
+    Dir.mktmpdir do |dir|
+      fixture = File.read(File.join(SPEC_FIXTURES, "versions.yml"))
+      File.write(File.join(dir, "versions.yml"),
+                 fixture.sub("    line: \"9.9\"\n", "    line: \"9.9\"\n    scenarios: [linux-gnu, windows-msys]\n"))
+      cache = File.join(dir, "cache")
+      FileUtils.mkdir_p(cache)
+      tarball = build_tarball(dir, "9.9.10")
+      FileUtils.cp(tarball, File.join(cache, "Python-9.9.10.tar.xz"))
+      result = described_class.new(releases: releases, repo_root: dir, cache_dir: cache).onboard("9.9.10")
+
+      expect(result).to be_verified
+      text = File.read(File.join(dir, "versions.yml"))
+      entry = text[/^  9\.9\.10:\n(?:^    .*\n)+/]
+      expect(entry).to include("scenarios: [linux-gnu, windows-msys]")
+      expect(Tfs::Versions.new(File.join(dir, "versions.yml")).fetch("9.9.10").scenarios)
+        .to eq(%w[linux-gnu windows-msys])
+    end
+  end
+
+  it "keeps the default implicit when the line has no scenario declaration" do
+    Dir.mktmpdir do |dir|
+      result = onboard_in(dir, "9.9.10")
+
+      expect(result).to be_verified
+      expect(File.read(File.join(dir, "versions.yml"))).not_to include("scenarios:")
+    end
+  end
 end

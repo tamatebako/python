@@ -68,18 +68,94 @@ RSpec.describe Tfs::BuildPlan do
 
     it "builds only the changed line's versions" do
       expect(plan.builds).to eq([
-                                  { version: "3.12.13", tree: "tfs-python-3.12.13-src",
+                                  { version: "3.12.13", platform: "linux-gnu", suffix: "",
+                                    tree: "tfs-python-3.12.13-src",
                                     asset: "tfs-python-3.12.13-src.tar.gz" },
-                                  { version: "3.12.14", tree: "tfs-python-3.12.14-src",
+                                  { version: "3.12.14", platform: "linux-gnu", suffix: "",
+                                    tree: "tfs-python-3.12.14-src",
                                     asset: "tfs-python-3.12.14-src.tar.gz" }
                                 ])
     end
 
     it "copies every other version's asset, named per the release contract" do
       expect(plan.copies).to eq([
-                                  { version: "3.13.15", asset: "tfs-python-3.13.15-src.tar.gz" },
-                                  { version: "9.9.9", asset: "tfs-python-9.9.9-src.tar.gz" }
+                                  { version: "3.13.15", suffix: "", asset: "tfs-python-3.13.15-src.tar.gz" },
+                                  { version: "9.9.9", suffix: "", asset: "tfs-python-9.9.9-src.tar.gz" }
                                 ])
+    end
+  end
+
+  # A scenario-bearing line (the windows-msys port's shape): 3.14 ships
+  # linux-gnu + windows-msys rows, 3.13 stays linux-gnu-only.
+  context "with a scenario-bearing line" do
+    def scenario_yaml(extra_scenarios: "scenarios: [linux-gnu, windows-msys]")
+      <<~YAML
+        versions:
+          3.13.15:
+            url: http://127.0.0.1:1/Python-3.13.15.tar.xz
+            sha256: "#{'0' * 63}3"
+            line: "3.13"
+          3.14.7:
+            url: http://127.0.0.1:1/Python-3.14.7.tar.xz
+            sha256: "#{'0' * 63}4"
+            line: "3.14"
+            #{extra_scenarios}
+      YAML
+    end
+
+    let(:scenario_versions) { versions_from(scenario_yaml) }
+    let(:scenario_previous) { versions_from(scenario_yaml) }
+
+    it "builds only the windows-msys row when the change is an _msys patch" do
+      plan = described_class.new(versions: scenario_versions,
+                                 diff: diff_for(["patches/3.14/pyport_ms_windows_msys.patch"]),
+                                 previous_versions: scenario_previous)
+      expect(plan.builds).to eq([
+                                  { version: "3.14.7", platform: "windows-msys", suffix: "-windows-msys",
+                                    tree: "tfs-python-3.14.7-src",
+                                    asset: "tfs-python-3.14.7-src-windows-msys.tar.gz" }
+                                ])
+      expect(plan.copies).to eq([
+                                  { version: "3.13.15", suffix: "", asset: "tfs-python-3.13.15-src.tar.gz" },
+                                  { version: "3.14.7", suffix: "", asset: "tfs-python-3.14.7-src.tar.gz" }
+                                ])
+    end
+
+    it "builds every row of the line when the line's manifest moves (selection rules changed)" do
+      plan = described_class.new(versions: scenario_versions,
+                                 diff: diff_for(["patches/3.14/patch-3.14.yaml"]),
+                                 previous_versions: scenario_previous)
+      expect(plan.builds.map { |row| row[:suffix] }).to eq(["", "-windows-msys"])
+      expect(plan.copies.map { |row| row[:version] }).to eq(["3.13.15"])
+    end
+
+    it "builds every row of the line when a base patch changes (fail-closed wide attribution)" do
+      plan = described_class.new(versions: scenario_versions,
+                                 diff: diff_for(["patches/3.14/getpath_quirk.patch"]),
+                                 previous_versions: scenario_previous)
+      expect(plan.builds.map { |row| row[:suffix] }).to eq(["", "-windows-msys"])
+    end
+
+    it "builds nothing when an _msys patch lands on a line whose versions ship no windows-msys scenario" do
+      # The changed attribution (windows-msys) meets no declared row of the
+      # 3.13 line: nothing stale ships, the orphan patch is an authoring
+      # error the release simply never consumes.
+      plan = described_class.new(versions: scenario_versions,
+                                 diff: diff_for(["patches/3.13/hypothetical_msys.patch"]),
+                                 previous_versions: scenario_previous)
+      expect(plan.builds).to eq([])
+      expect(plan.copies.map { |row| row[:asset] }).to contain_exactly(
+        "tfs-python-3.13.15-src.tar.gz",
+        "tfs-python-3.14.7-src.tar.gz", "tfs-python-3.14.7-src-windows-msys.tar.gz"
+      )
+    end
+
+    it "rebuilds every row when the entry's scenario list itself moved" do
+      moved = versions_from(scenario_yaml(extra_scenarios: ""))
+      plan = described_class.new(versions: scenario_versions,
+                                 diff: diff_for(["versions.yml"]),
+                                 previous_versions: moved)
+      expect(plan.builds.map { |row| row[:suffix] }).to eq(["", "-windows-msys"])
     end
   end
 

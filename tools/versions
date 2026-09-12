@@ -1,13 +1,29 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Usage: tools/versions
+# Usage: tools/versions [--scenarios|--smoke]
 # Prints the supported version list from versions.yml as a compact
-# GitHub-Actions matrix document: {"version":["3.12.14",...]} — one leg
-# per version.
+# GitHub-Actions matrix document.
+# Default: {"version":["3.12.14",...]} — one leg per version.
+# --scenarios: {"include":[{"version":...,"platform":...,"suffix":...},...]}
+# — one leg per (version x scenario build) declared in versions.yml, for
+# release-src's per-scenario source tarballs.
+# --smoke: the --scenarios rows minus linux-gnu — the scenarios that carry
+# a patch set (the PR-time compile-smoke matrix; the pristine scenario has
+# nothing patched to compile).
 
 $LOAD_PATH.unshift(File.expand_path("lib", __dir__))
 require "tfs"
 require "json"
 
-puts JSON.generate({ version: Tfs::Versions.new.names })
+versions = Tfs::Versions.new
+case ARGV
+when ["--scenarios"]
+  puts JSON.generate({ include: versions.builds })
+when ["--smoke"]
+  puts JSON.generate({ include: versions.builds.reject { |row| row[:platform] == "linux-gnu" } })
+when []
+  puts JSON.generate({ version: versions.names })
+else
+  abort "usage: tools/versions [--scenarios|--smoke]"
+end

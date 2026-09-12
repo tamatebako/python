@@ -1,0 +1,78 @@
+# pyport_ms_windows_msys.patch
+#
+# Target:  Include/pyport.h (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0002
+#          "build: Define MS_WINDOWS (and others) when compiling with MINGW"
+#          (ported verbatim; the proven out-of-tree port the TODO.python/05
+#          plan cites)
+#
+# Wall item (tebako-runtime-python PR #2, round 5): pyconfig.h.in never
+# defines MS_WINDOWS — upstream windows support is MSVC-only via
+# PC/pyconfig.h, and the autotools build we drive has no branch that
+# defines it. Everything downstream of that absence (pytime.c taking its
+# non-MS_WINDOWS branch and dying on timeval.tv_sec, the win32 module
+# surface staying invisible) starts here.
+#
+# The branch lives in pyport.h, NOT pyconfig.h.in: MS_WINDOWS must follow
+# the compiler's own __MINGW32__/_WIN32 (pyconfig.h is autoheader output
+# keyed on configure-time shell probes, and pyport.h is included by
+# Python.h immediately after pyconfig.h, before any consumer). This is
+# MSYS2's placement, validated by their full 103-patch port across every
+# TU and module; nothing in the POSIX scenarios sees it (the whole block
+# is __MINGW32__-guarded, and the patch applies only to the windows-msys
+# scenario tree anyway).
+#
+# Also derived here: MS_WIN64/MS_WIN32 from _WIN64/_WIN32, the
+# MS_WINDOWS_DESKTOP/APP/SYSTEM/GAMES partition defines from
+# winapifamily.h, and HAVE_WINDOWS_CONSOLE_IO — the same set PC/pyconfig.h
+# hands the MSVC build.
+
+diff --git a/Include/pyport.h b/Include/pyport.h
+index 2c8567f..c5c5f8e 100644
+--- a/Include/pyport.h
++++ b/Include/pyport.h
+@@ -78,6 +78,44 @@
+ #endif
+ 
+ 
++#ifdef __MINGW32__
++/* Translate GCC[mingw*] platform specific defines to those
++ * used in python code.
++ */
++#if !defined(MS_WIN64) && defined(_WIN64)
++#  define MS_WIN64
++#endif
++#if !defined(MS_WIN32) && defined(_WIN32)
++#  define MS_WIN32
++#endif
++#if !defined(MS_WINDOWS) && defined(MS_WIN32)
++#  define MS_WINDOWS
++#endif
++
++#if defined(Py_BUILD_CORE) || defined(Py_BUILD_CORE_BUILTIN) || defined(Py_BUILD_CORE_MODULE)
++#include <winapifamily.h>
++
++#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
++#define MS_WINDOWS_DESKTOP
++#endif
++#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP)
++#define MS_WINDOWS_APP
++#endif
++#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_SYSTEM)
++#define MS_WINDOWS_SYSTEM
++#endif
++#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_GAMES)
++#define MS_WINDOWS_GAMES
++#endif
++
++/* Define to 1 if you support windows console io */
++#if defined(MS_WINDOWS_DESKTOP) || defined(MS_WINDOWS_APP) || defined(MS_WINDOWS_SYSTEM)
++#define HAVE_WINDOWS_CONSOLE_IO 1
++#endif
++#endif /* Py_BUILD_CORE || Py_BUILD_CORE_BUILTIN || Py_BUILD_CORE_MODULE */
++
++#endif /* __MINGW32__*/
++
+ /**************************************************************************
+ Symbols and macros to supply platform-independent interfaces to basic
+ C language & library operations whose spellings vary across platforms.

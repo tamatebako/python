@@ -2,19 +2,23 @@ name: release-src
 
 # Repack-on-bump ONLY (the PROGRESS/23 lesson): the diff-aware plan
 # (tools/build_matrix over Tfs::ReleaseDiff/Tfs::BuildPlan) rebuilds exactly
-# the versions whose inputs changed — a changed patch line, a moved
-# versions.yml entry, a shared tooling change (fail closed: everything) —
-# and carries every other version's asset forward from the previous release
-# as a sha256-verified copy (tools/copy_asset). The ruby factory fans this
-# out into per-line units (_release-line.yml) for 30+ versions across 5
-# lines; at this factory's scale one flat matrix does the same job — split
-# per-line when the version count grows.
+# the (version x scenario) rows whose inputs changed — a changed patch line
+# (only the scenarios the changed patches FEED: an _msys patch never
+# re-rolls the POSIX tarball), a moved versions.yml entry, a shared tooling
+# change (fail closed: everything) — and carries every other row's asset
+# forward from the previous release as a sha256-verified copy
+# (tools/copy_asset). The ruby factory fans this out into per-line units
+# (_release-line.yml) for 30+ versions across 5 lines; at this factory's
+# scale one flat matrix does the same job — split per-line when the
+# version count grows.
 #
-# No compile-smoke gate (the ruby factory's smoke compiles PATCHED
-# translation units): the patch inventory is zero, so there is nothing to
-# compile-smoke. The build leg's extract-verify (diff -qr against the
-# staged tree) is the integrity gate. The smoke gate returns with the
-# first patch.
+# The compile-smoke gate (the v0.2.8 lesson, roadmap 17.0): publish is
+# gated on tools/smoke_matrix — one representative leg per (changed patch
+# line x affected scenario) compiled by _compile-smoke.yml
+# (tools/compile_smoke) on the scenario's native runner (windows-2022 +
+# msys2 ucrt64 for windows-msys). A patch set that ships apply-clean but
+# uncompilable never reaches the release. The build legs' extract-verify
+# (diff -qr against the staged tree) is the byte-integrity gate.
 
 on:
   push:
@@ -33,9 +37,11 @@ jobs:
     outputs:
       build: ${{ steps.emit.outputs.build }}
       copies: ${{ steps.emit.outputs.copies }}
+      smoke: ${{ steps.emit.outputs.smoke }}
       previous_tag: ${{ steps.emit.outputs.previous_tag }}
       build_count: ${{ steps.emit.outputs.build_count }}
       copies_count: ${{ steps.emit.outputs.copies_count }}
+      smoke_count: ${{ steps.emit.outputs.smoke_count }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -51,31 +57,51 @@ jobs:
         run: |
           build=$(tools/build_matrix "$RELEASE_TAG" --build)
           copies=$(tools/build_matrix "$RELEASE_TAG" --copies)
+          smoke=$(tools/smoke_matrix "$RELEASE_TAG")
           previous_tag=$(tools/build_matrix "$RELEASE_TAG" --previous-tag)
           {
             echo "build=$build"
             echo "copies=$copies"
+            echo "smoke=$smoke"
             echo "previous_tag=$previous_tag"
             # Leg counts drive the job-level if: guards (an unguarded
             # empty matrix poisons the run conclusion — the ruby factory's
             # v0.2.15 lesson).
             echo "build_count=$(jq '.include | length' <<< "$build")"
             echo "copies_count=$(jq '.include | length' <<< "$copies")"
+            echo "smoke_count=$(jq '.include | length' <<< "$smoke")"
           } >> "$GITHUB_OUTPUT"
           # Mirror the plan to the LOG: values written only to
           # $GITHUB_OUTPUT leave no diagnosable record when the legs skip
           # (the ruby factory's v0.2.24 zero-plan failure).
-          echo "plan: tag=$RELEASE_TAG previous_tag=${previous_tag:-<none>} build=$(jq '.include | length' <<< "$build") copies=$(jq '.include | length' <<< "$copies")"
+          echo "plan: tag=$RELEASE_TAG previous_tag=${previous_tag:-<none>} build=$(jq '.include | length' <<< "$build") copies=$(jq '.include | length' <<< "$copies") smoke=$(jq '.include | length' <<< "$smoke")"
           if [ -n "$previous_tag" ]; then
             echo "changed paths ($previous_tag..$RELEASE_TAG): $(git diff --name-only "$previous_tag..$RELEASE_TAG" 2>/dev/null || git diff --name-only "$previous_tag..HEAD" | paste -sd' ' -)"
           else
             echo "changed paths: <no previous tag — full build>"
           fi
 
-  build:
-    name: build ${{ matrix.version }}
+  # The changed lines' smoke runs FIRST and gates the build legs (a red
+  # smoke saves the build spend); copies run independently (a copied asset
+  # is byte-identical with the previous release's, there is nothing to
+  # smoke).
+  smoke:
+    name: smoke ${{ matrix.version }} (${{ matrix.platform }})
     needs: plan
-    if: needs.plan.outputs.build_count != '0'
+    if: needs.plan.outputs.smoke_count != '0'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.smoke) }}
+    uses: ./.github/workflows/_compile-smoke.yml
+    with:
+      version: ${{ matrix.version }}
+      platform: ${{ matrix.platform }}
+      runs_on: ${{ matrix.platform == 'windows-msys' && 'windows-2022' || 'ubuntu-latest' }}
+
+  build:
+    name: build ${{ matrix.version }}${{ matrix.suffix }}
+    needs: [plan, smoke]
+    if: ${{ always() && needs.plan.outputs.build_count != '0' && (needs.plan.outputs.smoke_count == '0' || needs.smoke.result == 'success') }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.build) }}
@@ -88,8 +114,11 @@ jobs:
           bundler-cache: true
       - name: validate manifests against schema
         run: bundle exec tools/validate_manifests
+      # Stage the row's scenario tree: linux-gnu applies the unsuffixed
+      # set (empty — the asset stays byte-identical with the pristine
+      # upstream tarball), windows-msys the line's _msys series.
       - name: stage the source tree
-        run: tools/prepare "${{ matrix.version }}" "$PWD/build"
+        run: tools/apply "${{ matrix.version }}" "$PWD/build" --platform "${{ matrix.platform }}"
       - name: package
         working-directory: build
         # Deterministic roll (README § "Reproducible tarballs"): the
@@ -109,7 +138,7 @@ jobs:
           diff -qr "${{ matrix.tree }}" "verify/${{ matrix.tree }}"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: tfs-python-${{ matrix.version }}-src
+          name: tfs-python-${{ matrix.version }}-src${{ matrix.suffix }}
           path: build/${{ matrix.asset }}*
           retention-days: 1
 
@@ -130,19 +159,19 @@ jobs:
         run: tools/copy_asset "${{ needs.plan.outputs.previous_tag }}" "${{ matrix.asset }}" "$PWD/dist"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: tfs-python-${{ matrix.version }}-src
+          name: tfs-python-${{ matrix.version }}-src${{ matrix.suffix }}
           path: dist/${{ matrix.asset }}*
           retention-days: 1
 
   publish:
     name: publish release
-    needs: [plan, build, copy]
-    # Every leg succeeded (or there was nothing to do): a failed build
-    # blocks the publish rather than shipping its stale copies. always() is
-    # LOAD-BEARING: a job-level if without a status-check function is
-    # implicitly ANDed with success(), and a skipped need makes success()
-    # false (the ruby factory's v0.2.24 zero-leg failure).
-    if: ${{ always() && needs.plan.result == 'success' && (needs.build.result == 'success' || needs.build.result == 'skipped') && (needs.copy.result == 'success' || needs.copy.result == 'skipped') }}
+    needs: [plan, smoke, build, copy]
+    # Every leg succeeded (or there was nothing to do): a failed smoke or
+    # build blocks the publish rather than shipping its stale copies.
+    # always() is LOAD-BEARING: a job-level if without a status-check
+    # function is implicitly ANDed with success(), and a skipped need makes
+    # success() false (the ruby factory's v0.2.24 zero-leg failure).
+    if: ${{ always() && needs.plan.result == 'success' && (needs.smoke.result == 'success' || needs.smoke.result == 'skipped') && (needs.build.result == 'success' || needs.build.result == 'skipped') && (needs.copy.result == 'success' || needs.copy.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -152,6 +181,7 @@ jobs:
       - name: needs results (publish gate diagnostic)
         run: |
           echo "plan.result  = ${{ needs.plan.result }}"
+          echo "smoke.result = ${{ needs.smoke.result }}"
           echo "build.result = ${{ needs.build.result }}"
           echo "copy.result  = ${{ needs.copy.result }}"
           echo "needs (full) = ${{ toJSON(needs) }}"

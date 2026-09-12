@@ -5,8 +5,10 @@
 # Builds <outdir>/tfs-python-<version>-src: the pristine upstream tree
 # fetched from the official URL (versions.yml), sha256-verified, cached
 # under .cache/tarballs (override with TFS_CACHE_DIR), and staged under
-# its release name. The patch inventory is zero today; application lands
-# in Tfs::SourcePrep#prepare when the first patch exists.
+# its release name with the linux-gnu scenario's patch set applied —
+# the unsuffixed set (empty today: the unsuffixed asset stays
+# byte-identical with the pristine upstream tarball). For a patched
+# scenario tree use tools/apply --platform.
 
 $LOAD_PATH.unshift(File.expand_path("lib", __dir__))
 require "tfs"
@@ -17,5 +19,7 @@ outdir = File.expand_path(ARGV[1] || "build")
 cache_dir = ENV.fetch("TFS_CACHE_DIR", Tfs::SourcePrep::DEFAULT_CACHE_DIR)
 
 FileUtils.mkdir_p(outdir)
-prep = Tfs::SourcePrep.new(versions: Tfs::Versions.new, cache_dir: cache_dir)
-puts prep.prepare(version, outdir)
+prep = Tfs::SourcePrep.new(versions: Tfs::Versions.new,
+                           selection: Tfs::PatchSelection.new,
+                           cache_dir: cache_dir)
+puts prep.prepare(version, outdir, platform: "linux-gnu")

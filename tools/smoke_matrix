@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/smoke_matrix <release-tag>
+#
+# Prints the release-src compile-smoke matrix as a GitHub Actions matrix
+# document: one leg per (changed line x AFFECTED scenario) — only the
+# scenarios the changed patches feed (an _msys patch never smokes
+# linux-gnu), where a "changed line" is a patches/<line>/ folder touched
+# between the previous release tag and <release-tag> (or HEAD when the
+# tag does not exist yet, e.g. a manual dispatch ahead of tagging; all
+# lines when there is no previous tag). The diff itself is
+# Tfs::ReleaseDiff — the same previous-tag base the build/copy plan
+# (tools/build_matrix) uses; the smoke gate keys on patch sets only,
+# since shared tooling does not change what a patched tree compiles to.
+# The leg plan is Tfs::SmokePlan.
+#
+# Emits {"include":[]} when no patch set changed: the gate is vacuously
+# green (an empty include matrix runs no legs and succeeds).
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+require "json"
+
+tag = ARGV[0] or abort "usage: tools/smoke_matrix <release-tag>"
+
+legs = Tfs::SmokePlan.new(versions: Tfs::Versions.new, diff: Tfs::ReleaseDiff.new(tag)).legs
+puts JSON.generate({ include: legs })

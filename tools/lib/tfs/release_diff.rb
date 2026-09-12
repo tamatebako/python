@@ -10,8 +10,8 @@ module Tfs
   #
   # A version's source tarball is a function of exactly these inputs:
   #
-  # * patches/<line>/**  — the line's patch set (a PER-LINE input; empty
-  #                        today — the patch inventory is zero)
+  # * patches/<line>/**  — the line's patch set (a PER-LINE input, with a
+  #                        per-scenario attribution: #changed_scenarios)
   # * versions.yml       — the version's own url/sha256/line entry
   #                        (a PER-VERSION input)
   # * tools/**, schema/**, workflows — the shared machinery: a change
@@ -21,8 +21,8 @@ module Tfs
   # counts as shared too (fail closed: an unrecognized input rebuilds the
   # full matrix rather than shipping possibly-stale verified copies).
   #
-  # Slimmed from tamatebako/ruby's ReleaseDiff: no scenario axis (no
-  # scenario builds exist until the first platform-conditional patch).
+  # Slimmed from tamatebako/ruby's ReleaseDiff: no pass axis (the ruby
+  # factory's msys GNUmakefile two-pass has no CPython analog).
   class ReleaseDiff
     # Release tags (v*), newest first.
     TAG_LIST_ARGS = %w[tag --list v* --sort=-version:refname].freeze
@@ -83,12 +83,37 @@ module Tfs
     end
 
     # Lines whose patch set changed. Nil means "every line" (no previous
-    # tag — build everything). Always empty while the patch inventory is
-    # zero; the first line folder under patches/ makes it real.
+    # tag — build everything). Empty while no patch folder changed.
     def patch_lines
       return nil if previous_tag.nil?
 
       changed_paths.filter_map { |path| path[LINE_PATH, 1] }.uniq
+    end
+
+    # Lines whose patch set changed, mapped to the scenarios the changed
+    # patches FEED (the fault-isolation axis the smoke plan and the
+    # build/copy plan share):
+    #
+    # * a patch-*.yaml manifest change feeds EVERY scenario of the line
+    #   (selection rules moved — nothing narrower is knowable);
+    # * a _msys-suffixed patch feeds the windows-msys scenario only;
+    # * anything else (a base patch, an unrecognized shape) fails closed:
+    #   every scenario.
+    #
+    # Nil means "no previous tag" (every scenario of every line). A line
+    # the diff saw but cannot attribute is the BuildPlan/SmokePlan layer's
+    # fail-closed case, not this layer's.
+    def changed_scenarios
+      return nil if previous_tag.nil?
+
+      changed_paths.each_with_object({}) do |path, acc|
+        m = path.match(%r{\Apatches/(\d+\.\d+)/(.+)})
+        next unless m
+
+        line, name = m.captures
+        acc[line] ||= []
+        acc[line] |= scenario_attribution(name)
+      end
     end
 
     # A shared input changed (or there is no previous tag): every version
@@ -125,6 +150,20 @@ module Tfs
 
     def shared_path?(path)
       !(path.match?(LINE_PATH) || path == VERSIONS_MANIFEST)
+    end
+
+    # A terminal _msys (optionally patch-versioned, the ruby factory's
+    # _msys_<N>.patch convention) marks a windows-msys-only patch.
+    SCENARIO_SUFFIX = /_msys(?:_\d+)?\.patch\z/.freeze
+
+    # One patch path's scenario attribution (the class doc's rules).
+    def scenario_attribution(name)
+      return Tfs::Versions::SCENARIOS if name.end_with?(".yaml")
+      return ["windows-msys"] if name.match?(SCENARIO_SUFFIX)
+
+      # A base patch: every scenario; an unrecognized suffix shape is a
+      # manifest authoring error the lint gate owns — attribute wide.
+      Tfs::Versions::SCENARIOS
     end
   end
 end

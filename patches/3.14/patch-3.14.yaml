@@ -1,0 +1,25 @@
+# patch-3.14.yaml — the 3.14 line's canonical patch set
+# (schema/patches.schema.yml; applied in array order by Tfs::SourcePrep).
+#
+# The windows-msys port (TODO.python/05, item 1). Every entry is
+# _msys-suffixed: the series applies ONLY to the windows-msys scenario
+# tree — the unsuffixed linux-gnu asset stays byte-identical with the
+# pristine upstream tarball. The wall evidence and per-patch rationale are
+# in each patch file's header comment.
+#
+# NEVER a jit variant on this platform: CPython's experimental JIT target
+# whitelist (PEP 774's tiering, Tools/jit/_targets.py per PEP 836's
+# build-story wording) admits only Tier-1 MSVC windows — a mingw/ucrt64
+# jit build is rejected upstream by construction, so the -jit catalog
+# flavors (tebako-runtime-python contract.yml) are never attempted here.
+---
+version: "3.14"
+patches:
+  - feature: pyport_ms_windows_msys
+    file: pyport_ms_windows_msys.patch
+  - feature: configure_machdep_msys
+    file: configure_machdep_msys.patch
+  - feature: configure_c_locale_coercion_msys
+    file: configure_c_locale_coercion_msys.patch
+  - feature: pycore_time_timeval_msys
+    file: pycore_time_timeval_msys.patch

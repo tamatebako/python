@@ -1,0 +1,46 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Usage: tools/apply <version> [outdir] [--platform NAME]
+# Builds <outdir>/tfs-python-<version>-src: the pristine upstream tree
+# (fetched from the official URL, sha256-verified, cached under
+# .cache/tarballs — override with TFS_CACHE_DIR) with the version's
+# canonical patch set applied for one coherent build scenario
+# (Tfs::PatchSelection). linux-gnu applies the unsuffixed set (empty
+# today — the unsuffixed asset stays byte-identical with the pristine
+# upstream tarball); windows-msys applies the line's _msys series.
+
+$LOAD_PATH.unshift(File.expand_path("lib", __dir__))
+require "tfs"
+require "fileutils"
+require "optparse"
+
+# The POSIX default scenario doubles as the macOS one: the unsuffixed
+# tree is what the macOS runtime legs consume (there is no darwin
+# scenario — tebako-runtime-python's SourceFetcher fetches the
+# unsuffixed asset for every POSIX platform).
+def native_platform
+  case RUBY_PLATFORM
+  when /linux/ then "linux-gnu"
+  when /darwin/ then "linux-gnu"
+  when /msys|mingw|cygwin/ then "windows-msys"
+  else abort "tools/apply: cannot detect platform #{RUBY_PLATFORM}; pass --platform"
+  end
+end
+
+options = { platform: nil }
+OptionParser.new do |parser|
+  parser.banner = "usage: tools/apply <version> [outdir] [--platform NAME]"
+  parser.on("--platform NAME", "linux-gnu | windows-msys (default: host)") { |v| options[:platform] = v }
+end.parse!
+
+version = ARGV[0] or abort "usage: tools/apply <version> [outdir] [--platform NAME]"
+outdir = File.expand_path(ARGV[1] || "build")
+platform = options[:platform] || native_platform
+cache_dir = ENV.fetch("TFS_CACHE_DIR", Tfs::SourcePrep::DEFAULT_CACHE_DIR)
+
+FileUtils.mkdir_p(outdir)
+prep = Tfs::SourcePrep.new(versions: Tfs::Versions.new,
+                           selection: Tfs::PatchSelection.new,
+                           cache_dir: cache_dir)
+puts prep.prepare(version, outdir, platform: platform)

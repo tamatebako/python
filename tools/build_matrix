@@ -6,15 +6,17 @@
 # Prints release-src's diff-aware build plan (Tfs::BuildPlan over
 # Tfs::ReleaseDiff) as GitHub Actions matrix documents:
 #
-#   --build   {"include":[{version,tree,asset},...]} — the legs to REPACK:
-#             versions whose patch line changed, plus every version on a
-#             shared tooling change (tools/**, schema/** or any
-#             unattributable path — fail closed), plus versions whose
-#             versions.yml entry is new or moved, plus everything on the
-#             first release.
-#   --copies  {"include":[{version,asset},...]} — the legs CARRIED FORWARD
-#             from the previous release, sha256-verified against its
-#             published SHA256SUMS (tools/copy_asset).
+#   --build   {"include":[{version,platform,suffix,tree,asset},...]} — the
+#             (version x scenario build) rows to REPACK: rows of versions
+#             whose patch line changed AND whose scenario the changed
+#             patches feed (an _msys patch re-rolls only the windows-msys
+#             asset), plus every row on a shared tooling change (tools/**,
+#             schema/** or any unattributable path — fail closed), plus
+#             rows of versions whose versions.yml entry is new or moved,
+#             plus everything on the first release.
+#   --copies  {"include":[{version,suffix,asset},...]} — the rows CARRIED
+#             FORWARD from the previous release, sha256-verified against
+#             its published SHA256SUMS (tools/copy_asset).
 #   --previous-tag — the bare tag the copies come from (empty on the first
 #             release).
 #

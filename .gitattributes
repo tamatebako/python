@@ -1,0 +1,7 @@
+# Windows runners check out with core.autocrlf=true (the Git for Windows
+# default): the windows-msys compile-smoke leg applies patches/<line>/*.patch
+# against the pristine (LF) tarball tree on windows-2022, and a CRLF patch
+# context line does not match an LF source line — git apply fails with
+# "patch does not apply". Everything authored in this repo is LF text;
+# keep it LF on checkout everywhere (attributes override core.autocrlf).
+* text=auto eol=lf

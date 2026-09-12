@@ -72,14 +72,29 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue create \
-            --title "Onboard python ${{ matrix.version }}: verification failed" \
-            --body "The release monitor could not onboard python **${{ matrix.version }}** -- the tarball fetch or the tree sanity check failed. No release was made.
+          title="Onboard python ${{ matrix.version }}: verification failed"
+          # Dedupe: a persistent failure must not open a new issue every
+          # day — comment the recurrence date on the existing open issue
+          # (exact-title match; the search alone is fuzzy) instead.
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number,title \
+            | jq -r --arg t "$title" '.[] | select(.title == $t) | .number' | head -n 1)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Recurred on $(date -u +%F) (UTC) -- the release monitor failed to onboard python **${{ matrix.version }}** again. No release was made.
 
           The failure detail is under \`error\`:
           \`\`\`json
           $(cat monitor-result.json)
           \`\`\`"
+          else
+            gh issue create \
+              --title "$title" \
+              --body "The release monitor could not onboard python **${{ matrix.version }}** -- the tarball fetch or the tree sanity check failed. No release was made.
+
+          The failure detail is under \`error\`:
+          \`\`\`json
+          $(cat monitor-result.json)
+          \`\`\`"
+          fi
 
   # No downstream dispatch yet (the ruby factory notifies
   # tebako-runtime-ruby here): tebako-runtime-python does not exist —

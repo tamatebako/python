@@ -5,6 +5,14 @@ module Tfs
   # directories) and the diff against the versions.yml set. The index lists
   # directories only, so each release's tarball URL is DERIVED from its
   # version — the layout is fixed upstream (ftp/python/<v>/Python-<v>.tar.xz).
+  #
+  # Directory presence is NOT releasedness: upstream creates <v>/ with the
+  # line's first PRE-RELEASE (ftp/python/3.15.0/ has served
+  # Python-3.15.0a1… for months while Python-3.15.0.tar.xz still 404s).
+  # A version therefore counts as released ONLY when its final tarball
+  # answers the tarball probe — trusting the directory is what made the
+  # monitor onboard-attempt an unreleased 3.15.0 every day (the
+  # tamatebako/python #3–#13 duplicate issues).
   class PythonReleases
     INDEX_URL = "https://www.python.org/ftp/python/"
 
@@ -32,8 +40,12 @@ module Tfs
       new(Tfs::HttpGet.body(url))
     end
 
-    def initialize(html)
+    # tarball_probe: #call(url) -> bool — whether a version's FINAL tarball
+    # is published (Tfs::HttpGet.method(:exists?) in production; a stub in
+    # specs).
+    def initialize(html, tarball_probe: Tfs::HttpGet.method(:exists?))
       @releases = html.scan(DIR_FORMAT).flatten.uniq.map { |name| Release.new(name: name) }.freeze
+      @tarball_probe = tarball_probe
     end
 
     attr_reader :releases
@@ -51,8 +63,11 @@ module Tfs
 
     # Released versions that are not onboarded yet: a newer patch release
     # of a line versions.yml tracks, or the latest release of an untracked
-    # line inside the support window (>= the oldest tracked line). Older
-    # patch releases and lines below the window are not candidates.
+    # line inside the support window (>= the oldest tracked line) — and in
+    # every case only when the FINAL tarball is actually published (a
+    # pre-release staging directory never counts as its final form; a/b/rc
+    # suffixes never parse into releases at all). Older patch releases and
+    # lines below the window are not candidates.
     # Sorted ascending (onboard oldest first).
     #
     # NOTE: a new LINE is a candidate so a human reviews it — the merge
@@ -71,10 +86,21 @@ module Tfs
       end
       @releases
         .select { |release| candidate?(release, max_of_line, min_line, latest_of_line) }
+        .select { |release| published?(release) }
         .sort_by { |release| Gem::Version.new(release.name) }
     end
 
     private
+
+    # A candidate whose final tarball does not answer 200 is not a release
+    # yet — it is simply not reported (never an onboard attempt, never an
+    # issue), with a stderr note so the daily run's log says why.
+    def published?(release)
+      return true if @tarball_probe.call(release.url)
+
+      warn "python #{release.name}: skipped — the final tarball is not published yet (#{release.url})"
+      false
+    end
 
     def candidate?(release, max_of_line, min_line, latest_of_line)
       return false if Gem::Version.new(release.line) < Gem::Version.new(min_line)

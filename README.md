@@ -100,9 +100,13 @@ per-version sum is the trust anchor the runtime factory verifies against.
   patch the version's line manifest selects.
 - `tools/monitor --detect | --onboard <version>` — the release monitor.
   `Tfs::PythonReleases` parses the official python.org FTP index
-  (exact `X.Y.Z` directories only — pre-releases never match) and diffs
-  against versions.yml (newer patch releases of tracked lines; the latest
-  release of an untracked line inside the support window).
+  (exact `X.Y.Z` directories only — pre-release suffixes and the two-part
+  aliases never match) and diffs against versions.yml (newer patch
+  releases of tracked lines; the latest release of an untracked line
+  inside the support window). A directory is not proof of release —
+  upstream creates `<v>/` with the line's first alpha — so a candidate
+  counts only when its final tarball `Python-<v>.tar.xz` answers a HEAD
+  probe; a 404 means simply not new (no onboard attempt, no issue).
   `Tfs::Onboarder` onboards one release end-to-end: pins it into
   versions.yml (derived official URL + sha256 of the fetched tarball) and
   re-verifies the new entry end-to-end (fetch, sha256, extract, tree
@@ -143,8 +147,10 @@ tools — the workflows carry no version literals.
   official CPython releases and onboards each on its own lane: a clean
   onboard opens an "Onboard python X.Y.Z" pull request
   (peter-evans/create-pull-request); a failing one files an issue with
-  the error detail. **Merge gate for a NEW line:** check it against
-  xml2rfc's `requires_python` before merge (the PR body says so — the
+  the error detail — or comments the recurrence date on the existing open
+  issue of the same title (a persistent failure never files duplicates).
+  **Merge gate for a NEW line:** check it against xml2rfc's
+  `requires_python` before merge (the PR body says so — the
   monitor detects, a human gates). No downstream dispatch exists yet —
   tebako-runtime-python is TODO.python/02; add it there when that repo
   lands.

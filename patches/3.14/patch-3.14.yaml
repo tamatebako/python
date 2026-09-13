@@ -46,6 +46,19 @@
 # wall pre-empted — _ctypes rides SHAREDMODS on the libffi-carrying
 # runner and nothing in the series gates it); 0076's hunk-3 context is
 # re-authored for 3.14.7's ac_cv_func_dlopen spelling.
+# v0.3.6 answers v0.3.5's windows CI leg (trp run 34753278108): `make
+# install` died in ensurepip — pip's vendored cachecontrol imports
+# mmap, and upstream gates the module on the posix sys/mman.h probe
+# (the win32 path uses MapViewOfFile) — answered by 0062. The same
+# leg's extension check REMOVED three built modules
+# (_decimal/_zstd/_testinternalcapi): upstream's bpo-36085
+# LOAD_LIBRARY_SEARCH_DEFAULT_DIRS never searches PATH, so a
+# build-tree .pyd can't see its dependency DLLs in <ucrt64>/bin —
+# answered by 0067 (PYTHONLEGACYWINDOWSDLLLOADING reverts to
+# LOAD_WITH_ALTERED_SEARCH_PATH; check_extension_modules.py sets it
+# for its own imports). 0064 rides along (the dlopen-gated test
+# modules switch to have_dynamic_loading), which restores 0076's
+# hunk-3 context to MSYS2-verbatim.
 #
 # NEVER a jit variant on this platform: CPython's experimental JIT target
 # whitelist (PEP 774's tiering, Tools/jit/_targets.py per PEP 836's
@@ -115,10 +128,16 @@ patches:
     file: configure_winsock_netdb_msys.patch
   - feature: configure_multiprocessing_win32_msys
     file: configure_multiprocessing_win32_msys.patch
+  - feature: configure_mmap_win32_msys
+    file: configure_mmap_win32_msys.patch
   - feature: configure_exeext_msys
     file: configure_exeext_msys.patch
+  - feature: configure_test_modules_dynamic_loading_msys
+    file: configure_test_modules_dynamic_loading_msys.patch
   - feature: pylifecycle_checkpython3_msys
     file: pylifecycle_checkpython3_msys.patch
+  - feature: dynload_legacy_dll_loading_msys
+    file: dynload_legacy_dll_loading_msys.patch
   - feature: configure_multiprocessing_ws2_32_msys
     file: configure_multiprocessing_ws2_32_msys.patch
   - feature: selectmodule_msys

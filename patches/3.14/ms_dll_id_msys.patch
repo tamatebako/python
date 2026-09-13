@@ -1,0 +1,81 @@
+# ms_dll_id_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys
+#          scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0015
+#          "build: Define MS_DLL_ID for sys.winver on MINGW" (ported
+#          verbatim; the generated configure is regenerated with the
+#          upstream-pinned autoconf 2.72, not hand-synced)
+#
+# Cluster item (forced by dynload_win_msys — see that header for the
+# wall narrative). Upstream defines MS_DLL_ID only in the MSVC
+# pyconfig (PC/pyconfig.h); PC/dl_nt.c — added to the mingw link by
+# dynload_win_msys — initializes PyWin_DLLVersionString = MS_DLL_ID,
+# so without this definition the new object does not compile. The
+# value ("3.14", with -32/-arm32/-arm64 decorations per arch) also
+# feeds getpath's PYWINVER fallback and sys.winver parity with the
+# MSVC build. POSIX legs untouched (mingw* case arm only;
+# CFLAGS_NODIST is build-machine-local and does not leak into
+# sysconfig's exported CFLAGS).
+diff --git a/configure b/configure
+index c5c4d2b..47e8c4c 100755
+--- a/configure
++++ b/configure
+@@ -19770,6 +19770,26 @@ printf "%s\n" "#define HAVE_DYNAMIC_LOADING 1" >>confdefs.h
+ 
+ fi
+ 
++# MS_DLL_ID is used for sys.winver and Windows registry keys.
++case $host in
++*-*-mingw*)
++	case $host in
++	i686*)
++		CFLAGS_NODIST="$CFLAGS_NODIST -DMS_DLL_ID='\"${VERSION}-32\"'"
++		;;
++	armv7*)
++		CFLAGS_NODIST="$CFLAGS_NODIST -DMS_DLL_ID='\"${VERSION}-arm32\"'"
++		;;
++	aarch64*)
++		CFLAGS_NODIST="$CFLAGS_NODIST -DMS_DLL_ID='\"${VERSION}-arm64\"'"
++		;;
++	*)
++		CFLAGS_NODIST="$CFLAGS_NODIST -DMS_DLL_ID='\"$VERSION\"'"
++		;;
++	esac
++	;;
++esac
++
+ # MACHDEP_OBJS can be set to platform-specific object files needed by Python
+ 
+ 
+diff --git a/configure.ac b/configure.ac
+index fa6e022..374ab2a 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5410,6 +5410,26 @@ then
+         [Defined when any dynamic module loading is enabled.])
+ fi
+ 
++# MS_DLL_ID is used for sys.winver and Windows registry keys.
++case $host in
++*-*-mingw*)
++	case $host in
++	i686*)
++		CFLAGS_NODIST="$CFLAGS_NODIST -DMS_DLL_ID='\"${VERSION}-32\"'"
++		;;
++	armv7*)
++		CFLAGS_NODIST="$CFLAGS_NODIST -DMS_DLL_ID='\"${VERSION}-arm32\"'"
++		;;
++	aarch64*)
++		CFLAGS_NODIST="$CFLAGS_NODIST -DMS_DLL_ID='\"${VERSION}-arm64\"'"
++		;;
++	*)
++		CFLAGS_NODIST="$CFLAGS_NODIST -DMS_DLL_ID='\"$VERSION\"'"
++		;;
++	esac
++	;;
++esac
++
+ # MACHDEP_OBJS can be set to platform-specific object files needed by Python
+ 
+ AC_SUBST([MACHDEP_OBJS])

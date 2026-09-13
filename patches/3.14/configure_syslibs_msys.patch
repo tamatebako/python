@@ -5,14 +5,18 @@
 # Source:  tebako DEVIATION — the shape has no MSYS2 counterpart (MSYS2
 #          builds shared: its libpython3.dll resolves the system libs
 #          through the DLL's own import list, so tails never have to
-#          reach module link lines; our --disable-shared static shape
-#          has no such indirection). The lib SET itself is MSYS2's: the
-#          original four from 0059's module tails, then the
-#          -lversion -lshlwapi -lpathcch tail of 0010's mingw LIBS hunk
-#          (0010 itself is skipped as shared-build machinery; its LIBS
-#          hunk is folded in here — MSVC gets the same libs via
+#          reach module link lines; the factory's static-builtin links
+#          have no such indirection, in either core-linkage shape). The
+#          lib SET itself is MSYS2's: the original four from 0059's
+#          module tails, then the -lversion -lshlwapi -lpathcch tail of
+#          0010's mingw LIBS hunk — which is ELIDED from the
+#          configure_shared_mingw_msys port and carried here instead:
+#          one carrier, and this post-MODLIBS SYSLIBS position is the
+#          one that survives the factory's modlib_rewrites (a
+#          pre-MODLIBS LIBS copy of -lbcrypt would not resolve
+#          libcrypto's static refs). MSVC gets the same libs via
 #          `#pragma comment(lib, ...)` in the sources, which GCC
-#          ignores). (The generated configure equivalent is
+#          ignores. (The generated configure equivalent is
 #          REGENERATED with the upstream-pinned autoconf 2.72 —
 #          byte-identical regen against pristine proven, no hand-sync;
 #          pyconfig.h.in is untouched: no AC_DEFINE involved.)
@@ -40,10 +44,10 @@
 # after MODLIBS on every link line (python, _bootstrap_python,
 # _freeze_module, _testembed) and is never rewritten downstream.
 diff --git a/Makefile.pre.in b/Makefile.pre.in
-index f1b346d..f7e7b71 100644
+index 22553b4..e23914d 100644
 --- a/Makefile.pre.in
 +++ b/Makefile.pre.in
-@@ -294,7 +294,7 @@ STATIC_LIBPYTHON=	@STATIC_LIBPYTHON@
+@@ -297,7 +297,7 @@ STATIC_LIBPYTHON=	@STATIC_LIBPYTHON@
  LIBS=		@LIBS@
  LIBM=		@LIBM@
  LIBC=		@LIBC@
@@ -53,18 +57,18 @@ index f1b346d..f7e7b71 100644
  
  DLINCLDIR=	@DLINCLDIR@
 diff --git a/configure b/configure
-index 1b8d088..e4cbbb6 100755
+index 1be9f0e..d14cfe6 100755
 --- a/configure
 +++ b/configure
-@@ -850,6 +850,7 @@ MODULE_DEPS_SHARED
- EXT_SUFFIX
+@@ -863,6 +863,7 @@ EXT_SUFFIX
  ALT_SOABI
  SOABI
+ PYD_PLATFORM_TAG
 +WINDOWS_SYSLIBS
  LIBC
  LIBM
  HAVE_GETHOSTBYNAME
-@@ -26629,6 +26630,12 @@ esac
+@@ -26791,6 +26792,12 @@ esac
  fi
  
  
@@ -78,10 +82,10 @@ index 1b8d088..e4cbbb6 100755
  # * Check for gcc x64 inline assembler *
  # **************************************
 diff --git a/configure.ac b/configure.ac
-index 2f834f0..4a169da 100644
+index 5d50b91..3d2b46e 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -6280,6 +6280,17 @@ else AC_MSG_ERROR([proper usage is --with-libc=STRING])
+@@ -6325,6 +6325,17 @@ else AC_MSG_ERROR([proper usage is --with-libc=STRING])
  fi],
  [AC_MSG_RESULT([default LIBC="$LIBC"])])
  

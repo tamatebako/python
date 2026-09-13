@@ -1,0 +1,381 @@
+# winreg_modules_msys.patch
+#
+# Target:  Modules/Setup.bootstrap.in + Modules/Setup.stdlib.in +
+#          Modules/_winapi.c + PC/msvcrtmodule.c +
+#          Python/dynamic_annotations.c + configure.ac + the generated
+#          configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0018
+#          "build: enable winreg, msvcrt, _winapi, winsound and
+#          _overlapped modules" (ported verbatim; the generated
+#          configure is regenerated with the upstream-pinned autoconf
+#          2.72, not hand-synced)
+#
+# Wall item (observed BOOT wall, tamatebako/python PR #18 CI run
+# 34741183330, windows-msys smoke leg — the native ucrt64 oracle):
+# every make target died before compiling, at the frozen-module regen:
+#   ModuleNotFoundError: No module named 'winreg'
+#   Fatal Python error: _PyImport_InitExternal: external importer setup
+#   failed
+# The frozen importlib._bootstrap_external carries `import winreg` at
+# module top level under sys.platform == 'win32'
+# (Lib/importlib/_bootstrap_external.py:36), so EVERY interpreter boot
+# on the mingw build — _bootstrap_python running the freeze first —
+# requires winreg resolvable, and upstream's autoconf build never
+# builds it (the module set lives in the MSVC project files). The
+# static-shape tree carried the same latent wall; the earlier windows
+# legs simply never survived far enough for a boot to prove it (the
+# link walls fired first). The patch registers the windows module set:
+# winreg/msvcrt/_winapi as BOOTSTRAP modules (static, linked into the
+# core — winreg must predate the import system), winsound (-lwinmm)
+# and _overlapped (-lws2_32) as stdlib modules, plus the mingw compile
+# fixes they need (crtdbg.h is debug-only; dynamic_annotations.c's
+# windows.h include gates on MS_WINDOWS). Deferred in v0.3.2 as
+# feature parity — promoted by the boot evidence; _winapi is
+# subprocess-critical on Windows regardless.
+diff --git a/Modules/Setup.bootstrap.in b/Modules/Setup.bootstrap.in
+index 0a932d4..ff066b0 100644
+--- a/Modules/Setup.bootstrap.in
++++ b/Modules/Setup.bootstrap.in
+@@ -40,3 +40,8 @@ _symtable symtablemodule.c
+ 
+ # for systems without $HOME env, used by site._getuserbase()
+ @MODULE_PWD_TRUE@pwd pwdmodule.c
++
++# build-in modules for windows platform:
++@MODULE_WINREG_TRUE@winreg ../PC/winreg.c
++@MODULE_MSVCRT_TRUE@msvcrt -DPy_BUILD_CORE ../PC/msvcrtmodule.c
++@MODULE__WINAPI_TRUE@_winapi _winapi.c
+diff --git a/Modules/Setup.stdlib.in b/Modules/Setup.stdlib.in
+index 0f92ef4..a0fc4b4 100644
+--- a/Modules/Setup.stdlib.in
++++ b/Modules/Setup.stdlib.in
+@@ -167,6 +167,12 @@
+ # _scproxy needs SystemConfiguration and CoreFoundation framework
+ @MODULE__SCPROXY_TRUE@_scproxy _scproxy.c
+ 
++############################################################################
++# Windows specific modules
++
++@MODULE__OVERLAPPED_TRUE@_overlapped overlapped.c
++@MODULE_WINSOUND_TRUE@winsound ../PC/winsound.c
++
+ 
+ ############################################################################
+ # Test modules
+diff --git a/Modules/_winapi.c b/Modules/_winapi.c
+index 767a5b3..abfd32d 100644
+--- a/Modules/_winapi.c
++++ b/Modules/_winapi.c
+@@ -46,7 +46,9 @@
+ #endif
+ #include <windows.h>
+ #include <winioctl.h>
++#if defined(Py_DEBUG)
+ #include <crtdbg.h>
++#endif
+ #include "winreparse.h"
+ 
+ #if defined(MS_WIN32) && !defined(MS_WIN64)
+diff --git a/PC/msvcrtmodule.c b/PC/msvcrtmodule.c
+index b170e06..b4c3f92 100644
+--- a/PC/msvcrtmodule.c
++++ b/PC/msvcrtmodule.c
+@@ -22,7 +22,9 @@
+ #include <io.h>
+ #include <conio.h>
+ #include <sys/locking.h>
++#ifdef _DEBUG
+ #include <crtdbg.h>
++#endif
+ #include <windows.h>
+ 
+ #ifdef _MSC_VER
+diff --git a/Python/dynamic_annotations.c b/Python/dynamic_annotations.c
+index 7febaa0..70d5b3d 100644
+--- a/Python/dynamic_annotations.c
++++ b/Python/dynamic_annotations.c
+@@ -27,7 +27,7 @@
+  * Author: Kostya Serebryany
+  */
+ 
+-#ifdef _MSC_VER
++#ifdef MS_WINDOWS
+ # include <windows.h>
+ #endif
+ 
+diff --git a/configure b/configure
+index d47045a..049eaaa 100755
+--- a/configure
++++ b/configure
+@@ -672,6 +672,16 @@ MODULE__TESTCLINIC_FALSE
+ MODULE__TESTCLINIC_TRUE
+ MODULE__TESTCAPI_FALSE
+ MODULE__TESTCAPI_TRUE
++MODULE__OVERLAPPED_FALSE
++MODULE__OVERLAPPED_TRUE
++MODULE_WINSOUND_FALSE
++MODULE_WINSOUND_TRUE
++MODULE__WINAPI_FALSE
++MODULE__WINAPI_TRUE
++MODULE_MSVCRT_FALSE
++MODULE_MSVCRT_TRUE
++MODULE_WINREG_FALSE
++MODULE_WINREG_TRUE
+ MODULE__HASHLIB_FALSE
+ MODULE__HASHLIB_TRUE
+ MODULE__SSL_FALSE
+@@ -34818,6 +34828,207 @@ printf "%s\n" "$py_cv_module__hashlib" >&6; }
+ 
+ 
+ 
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module winreg" >&5
++printf %s "checking for stdlib extension module winreg... " >&6; }
++        if test "$py_cv_module_winreg" != "n/a"
++then :
++
++    if test "$MACHDEP" = "win32"
++then :
++  if true
++then :
++  py_cv_module_winreg=yes
++else case e in #(
++  e) py_cv_module_winreg=missing ;;
++esac
++fi
++else case e in #(
++  e) py_cv_module_winreg=disabled ;;
++esac
++fi
++
++fi
++  as_fn_append MODULE_BLOCK "MODULE_WINREG_STATE=$py_cv_module_winreg$as_nl"
++  if test "x$py_cv_module_winreg" = xyes
++then :
++
++
++
++
++fi
++   if test "$py_cv_module_winreg" = yes; then
++  MODULE_WINREG_TRUE=
++  MODULE_WINREG_FALSE='#'
++else
++  MODULE_WINREG_TRUE='#'
++  MODULE_WINREG_FALSE=
++fi
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module_winreg" >&5
++printf "%s\n" "$py_cv_module_winreg" >&6; }
++
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module msvcrt" >&5
++printf %s "checking for stdlib extension module msvcrt... " >&6; }
++        if test "$py_cv_module_msvcrt" != "n/a"
++then :
++
++    if test "$MACHDEP" = "win32"
++then :
++  if true
++then :
++  py_cv_module_msvcrt=yes
++else case e in #(
++  e) py_cv_module_msvcrt=missing ;;
++esac
++fi
++else case e in #(
++  e) py_cv_module_msvcrt=disabled ;;
++esac
++fi
++
++fi
++  as_fn_append MODULE_BLOCK "MODULE_MSVCRT_STATE=$py_cv_module_msvcrt$as_nl"
++  if test "x$py_cv_module_msvcrt" = xyes
++then :
++
++
++
++
++fi
++   if test "$py_cv_module_msvcrt" = yes; then
++  MODULE_MSVCRT_TRUE=
++  MODULE_MSVCRT_FALSE='#'
++else
++  MODULE_MSVCRT_TRUE='#'
++  MODULE_MSVCRT_FALSE=
++fi
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module_msvcrt" >&5
++printf "%s\n" "$py_cv_module_msvcrt" >&6; }
++
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module _winapi" >&5
++printf %s "checking for stdlib extension module _winapi... " >&6; }
++        if test "$py_cv_module__winapi" != "n/a"
++then :
++
++    if test "$MACHDEP" = "win32"
++then :
++  if true
++then :
++  py_cv_module__winapi=yes
++else case e in #(
++  e) py_cv_module__winapi=missing ;;
++esac
++fi
++else case e in #(
++  e) py_cv_module__winapi=disabled ;;
++esac
++fi
++
++fi
++  as_fn_append MODULE_BLOCK "MODULE__WINAPI_STATE=$py_cv_module__winapi$as_nl"
++  if test "x$py_cv_module__winapi" = xyes
++then :
++
++
++
++
++fi
++   if test "$py_cv_module__winapi" = yes; then
++  MODULE__WINAPI_TRUE=
++  MODULE__WINAPI_FALSE='#'
++else
++  MODULE__WINAPI_TRUE='#'
++  MODULE__WINAPI_FALSE=
++fi
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module__winapi" >&5
++printf "%s\n" "$py_cv_module__winapi" >&6; }
++
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module winsound" >&5
++printf %s "checking for stdlib extension module winsound... " >&6; }
++        if test "$py_cv_module_winsound" != "n/a"
++then :
++
++    if test "$MACHDEP" = "win32"
++then :
++  if true
++then :
++  py_cv_module_winsound=yes
++else case e in #(
++  e) py_cv_module_winsound=missing ;;
++esac
++fi
++else case e in #(
++  e) py_cv_module_winsound=disabled ;;
++esac
++fi
++
++fi
++  as_fn_append MODULE_BLOCK "MODULE_WINSOUND_STATE=$py_cv_module_winsound$as_nl"
++  if test "x$py_cv_module_winsound" = xyes
++then :
++
++
++    as_fn_append MODULE_BLOCK "MODULE_WINSOUND_LDFLAGS=-lwinmm$as_nl"
++
++fi
++   if test "$py_cv_module_winsound" = yes; then
++  MODULE_WINSOUND_TRUE=
++  MODULE_WINSOUND_FALSE='#'
++else
++  MODULE_WINSOUND_TRUE='#'
++  MODULE_WINSOUND_FALSE=
++fi
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module_winsound" >&5
++printf "%s\n" "$py_cv_module_winsound" >&6; }
++
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module _overlapped" >&5
++printf %s "checking for stdlib extension module _overlapped... " >&6; }
++        if test "$py_cv_module__overlapped" != "n/a"
++then :
++
++    if test "$MACHDEP" = "win32"
++then :
++  if true
++then :
++  py_cv_module__overlapped=yes
++else case e in #(
++  e) py_cv_module__overlapped=missing ;;
++esac
++fi
++else case e in #(
++  e) py_cv_module__overlapped=disabled ;;
++esac
++fi
++
++fi
++  as_fn_append MODULE_BLOCK "MODULE__OVERLAPPED_STATE=$py_cv_module__overlapped$as_nl"
++  if test "x$py_cv_module__overlapped" = xyes
++then :
++
++
++    as_fn_append MODULE_BLOCK "MODULE__OVERLAPPED_LDFLAGS=-lws2_32$as_nl"
++
++fi
++   if test "$py_cv_module__overlapped" = yes; then
++  MODULE__OVERLAPPED_TRUE=
++  MODULE__OVERLAPPED_FALSE='#'
++else
++  MODULE__OVERLAPPED_TRUE='#'
++  MODULE__OVERLAPPED_FALSE=
++fi
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module__overlapped" >&5
++printf "%s\n" "$py_cv_module__overlapped" >&6; }
++
++
++
+   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module _testcapi" >&5
+ printf %s "checking for stdlib extension module _testcapi... " >&6; }
+         if test "$py_cv_module__testcapi" != "n/a"
+@@ -35780,6 +35991,26 @@ if test -z "${MODULE__HASHLIB_TRUE}" && test -z "${MODULE__HASHLIB_FALSE}"; then
+   as_fn_error $? "conditional \"MODULE__HASHLIB\" was never defined.
+ Usually this means the macro was only invoked conditionally." "$LINENO" 5
+ fi
++if test -z "${MODULE_WINREG_TRUE}" && test -z "${MODULE_WINREG_FALSE}"; then
++  as_fn_error $? "conditional \"MODULE_WINREG\" was never defined.
++Usually this means the macro was only invoked conditionally." "$LINENO" 5
++fi
++if test -z "${MODULE_MSVCRT_TRUE}" && test -z "${MODULE_MSVCRT_FALSE}"; then
++  as_fn_error $? "conditional \"MODULE_MSVCRT\" was never defined.
++Usually this means the macro was only invoked conditionally." "$LINENO" 5
++fi
++if test -z "${MODULE__WINAPI_TRUE}" && test -z "${MODULE__WINAPI_FALSE}"; then
++  as_fn_error $? "conditional \"MODULE__WINAPI\" was never defined.
++Usually this means the macro was only invoked conditionally." "$LINENO" 5
++fi
++if test -z "${MODULE_WINSOUND_TRUE}" && test -z "${MODULE_WINSOUND_FALSE}"; then
++  as_fn_error $? "conditional \"MODULE_WINSOUND\" was never defined.
++Usually this means the macro was only invoked conditionally." "$LINENO" 5
++fi
++if test -z "${MODULE__OVERLAPPED_TRUE}" && test -z "${MODULE__OVERLAPPED_FALSE}"; then
++  as_fn_error $? "conditional \"MODULE__OVERLAPPED\" was never defined.
++Usually this means the macro was only invoked conditionally." "$LINENO" 5
++fi
+ if test -z "${MODULE__TESTCAPI_TRUE}" && test -z "${MODULE__TESTCAPI_FALSE}"; then
+   as_fn_error $? "conditional \"MODULE__TESTCAPI\" was never defined.
+ Usually this means the macro was only invoked conditionally." "$LINENO" 5
+diff --git a/configure.ac b/configure.ac
+index 744c260..635b138 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -8626,6 +8626,15 @@ PY_STDLIB_MOD([_ssl], [], [test "$ac_cv_working_openssl_ssl" = yes],
+ PY_STDLIB_MOD([_hashlib], [], [test "$ac_cv_working_openssl_hashlib" = yes],
+   [$OPENSSL_INCLUDES], [$OPENSSL_LDFLAGS $OPENSSL_LDFLAGS_RPATH $LIBCRYPTO_LIBS])
+ 
++dnl windows specific modules
++PY_STDLIB_MOD([winreg], [test "$MACHDEP" = "win32"])
++PY_STDLIB_MOD([msvcrt], [test "$MACHDEP" = "win32"])
++PY_STDLIB_MOD([_winapi], [test "$MACHDEP" = "win32"])
++PY_STDLIB_MOD([winsound], [test "$MACHDEP" = "win32"], [], [],
++  [-lwinmm])
++PY_STDLIB_MOD([_overlapped], [test "$MACHDEP" = "win32"], [], [],
++  [-lws2_32])
++
+ dnl test modules
+ PY_STDLIB_MOD([_testcapi],
+     [test "$TEST_MODULES" = yes],

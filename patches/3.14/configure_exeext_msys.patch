@@ -13,10 +13,10 @@
 # Makefile (PythonBuild#exe_path); the patch pins EXEEXT=.exe and
 # BUILDEXEEXT=.exe for MINGW so the artifact name is probe-independent.
 diff --git a/configure b/configure
-index a621d6a..efadbf5 100755
+index ad023c7..d3e9f1c 100755
 --- a/configure
 +++ b/configure
-@@ -7510,6 +7510,8 @@ else case e in #(
+@@ -7524,6 +7524,8 @@ else case e in #(
      EXEEXT=.mjs ;; #(
    WASI) :
      EXEEXT=.wasm ;; #(
@@ -25,7 +25,7 @@ index a621d6a..efadbf5 100755
    *) :
      EXEEXT=
     ;;
-@@ -7545,6 +7547,14 @@ printf "%s\n" "no" >&6; }
+@@ -7559,6 +7561,14 @@ printf "%s\n" "no" >&6; }
  fi
  rmdir CaseSensitiveTestDir
  
@@ -41,7 +41,7 @@ index a621d6a..efadbf5 100755
  hp*|HP*)
      case $ac_cv_cc_name in
 diff --git a/configure.ac b/configure.ac
-index 19907c4..43c1417 100644
+index 9a512f7..95cb4a2 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -1391,6 +1391,7 @@ AC_ARG_WITH([suffix],

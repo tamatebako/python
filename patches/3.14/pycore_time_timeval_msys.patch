@@ -14,16 +14,21 @@
 # (upstream guards it on __clang__ only, which never fires under the
 # ucrt64 gcc) so the internal time API prototypes see the type.
 
-diff --git a/Include/internal/pycore_time.h b/Include/internal/pycore_time.h
-index 2331247..edfcaef 100644
---- a/Include/internal/pycore_time.h
-+++ b/Include/internal/pycore_time.h
-@@ -59,7 +59,7 @@ extern "C" {
+diff --git a/Modules/mmapmodule.c b/Modules/mmapmodule.c
+index f7b8ab3..6cea430 100644
+--- a/Modules/mmapmodule.c
++++ b/Modules/mmapmodule.c
+@@ -62,6 +62,13 @@ my_getallocationgranularity (void)
  
- #include "pycore_runtime_structs.h" // _PyTimeFraction
- 
--#ifdef __clang__
-+#ifdef MS_WINDOWS
- struct timeval;
  #endif
  
++#if defined(_DEBUG) || defined(__MINGW32__)
++/* Don't use structured exception handling on Windows if this is defined.
++   MingW, AFAIK, doesn't support it.
++*/
++#define DONT_USE_SEH
++#endif
++
+ #ifdef UNIX
+ #include <sys/mman.h>
+ #include <sys/stat.h>

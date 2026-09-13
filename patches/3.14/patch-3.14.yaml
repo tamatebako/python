@@ -14,7 +14,21 @@
 # (rationale in its header), appended last. v0.3.2 extends the set past
 # the PR #16 walls (sysmodule VPATH, thread_pthread) with the sweep of
 # the full MSYS2 series for our build shape — the ported set and the
-# deliberate skips are recorded in the PR body.
+# deliberate skips are recorded in the PR body. v0.3.3 adds the shared
+# build (0009/0010) plus the dynload_win cluster (0011-0015) that the
+# PyWin_DLLhModule link wall forced — the cluster moves windows-msys
+# extension modules to the .cp314-mingw_x86_64_ucrt_gnu.pyd spelling;
+# see the dynload_win_msys header. The same release carries 0066 (the
+# _Py_CheckPython3 declaration conflict the dynload_win.c compile
+# raised) and 0039 (the wmain/-municode exe link fix + win resources +
+# pythonw.exe). v0.3.3's first CI leg then exposed the interpreter boot
+# wall: _bootstrap_external.py imports winreg at module top level on
+# win32, and the autoconf build had never built winreg — answered by
+# 0018 (winreg/msvcrt/_winapi as bootstrap-static modules). The second
+# CI leg exposed the next one: site.py's win32 branch reads sys.winver,
+# which upstream sysmodule.c installs only under the MSVC-project-only
+# MS_COREDLL — answered by 0034 (the guard becomes
+# defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)).
 #
 # NEVER a jit variant on this platform: CPython's experimental JIT target
 # whitelist (PEP 774's tiering, Tools/jit/_targets.py per PEP 836's
@@ -36,14 +50,34 @@ patches:
     file: configure_pc_include_msys.patch
   - feature: posixmodule_nt_msys
     file: posixmodule_nt_msys.patch
+  - feature: exports_declspec_msys
+    file: exports_declspec_msys.patch
+  - feature: configure_shared_mingw_msys
+    file: configure_shared_mingw_msys.patch
+  - feature: pyd_platform_tag_msys
+    file: pyd_platform_tag_msys.patch
+  - feature: dynload_win_msys
+    file: dynload_win_msys.patch
+  - feature: pyd_suffix_msys
+    file: pyd_suffix_msys.patch
+  - feature: soabi_ext_suffix_msys
+    file: soabi_ext_suffix_msys.patch
+  - feature: ms_dll_id_msys
+    file: ms_dll_id_msys.patch
+  - feature: sysmodule_coredll_msys
+    file: sysmodule_coredll_msys.patch
   - feature: frozenmain_drop_msys
     file: frozenmain_drop_msys.patch
   - feature: socketmodule_msys
     file: socketmodule_msys.patch
+  - feature: winreg_modules_msys
+    file: winreg_modules_msys.patch
   - feature: signal_ws2_32_msys
     file: signal_ws2_32_msys.patch
   - feature: io_winconsoleio_msys
     file: io_winconsoleio_msys.patch
+  - feature: win_resources_pythonw_msys
+    file: win_resources_pythonw_msys.patch
   - feature: configure_inet_pton_msys
     file: configure_inet_pton_msys.patch
   - feature: timemodule_msys
@@ -60,6 +94,8 @@ patches:
     file: configure_winsock_netdb_msys.patch
   - feature: configure_exeext_msys
     file: configure_exeext_msys.patch
+  - feature: pylifecycle_checkpython3_msys
+    file: pylifecycle_checkpython3_msys.patch
   - feature: configure_disable_posix_modules_msys
     file: configure_disable_posix_modules_msys.patch
   - feature: configure_noerror_incompat_ptr_msys

@@ -18,10 +18,10 @@
 # runtime never uses — payloads ride mounted images, not frozen
 # bytecode).
 diff --git a/Makefile.pre.in b/Makefile.pre.in
-index 526d500..b3f3eee 100644
+index e408c6d..7b3c0d1 100644
 --- a/Makefile.pre.in
 +++ b/Makefile.pre.in
-@@ -444,7 +444,7 @@ PYTHON_OBJS=	\
+@@ -445,7 +445,7 @@ PYTHON_OBJS=	\
  		Python/errors.o \
  		Python/flowgraph.o \
  		Python/frame.o \
@@ -31,7 +31,7 @@ index 526d500..b3f3eee 100644
  		Python/gc.o \
  		Python/gc_free_threading.o \
 diff --git a/configure b/configure
-index 25c93bd..423b21b 100755
+index 47e8c4c..55e611f 100755
 --- a/configure
 +++ b/configure
 @@ -828,6 +828,7 @@ OPENSSL_INCLUDES
@@ -42,7 +42,7 @@ index 25c93bd..423b21b 100755
  THREADHEADERS
  PANEL_LIBS
  PANEL_CFLAGS
-@@ -30860,6 +30861,14 @@ case $host in
+@@ -30985,6 +30986,14 @@ case $host in
  esac
  
  
@@ -58,10 +58,10 @@ index 25c93bd..423b21b 100755
    Modules \
    Modules/_ctypes \
 diff --git a/configure.ac b/configure.ac
-index 9255f4d..2def216 100644
+index 374ab2a..81d8d6e 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7463,6 +7463,16 @@ case $host in
+@@ -7572,6 +7572,16 @@ case $host in
      ;;
  esac
  

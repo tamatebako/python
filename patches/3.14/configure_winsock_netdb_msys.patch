@@ -28,10 +28,10 @@
 # undefined exactly as upstream's PC build has them — the MS_WINDOWS
 # fallback paths in socketmodule.c cover them.)
 diff --git a/configure b/configure
-index 3dca209..a621d6a 100755
+index 4a2eed1..ad023c7 100755
 --- a/configure
 +++ b/configure
-@@ -20063,12 +20063,6 @@ if test "x$ac_cv_func_getgrouplist" = xyes
+@@ -20225,12 +20225,6 @@ if test "x$ac_cv_func_getgrouplist" = xyes
  then :
    printf "%s\n" "#define HAVE_GETGROUPLIST 1" >>confdefs.h
  
@@ -44,7 +44,7 @@ index 3dca209..a621d6a 100755
  fi
  ac_fn_c_check_func "$LINENO" "getitimer" "ac_cv_func_getitimer"
  if test "x$ac_cv_func_getitimer" = xyes
-@@ -20717,12 +20711,6 @@ if test "x$ac_cv_func_setvbuf" = xyes
+@@ -20879,12 +20873,6 @@ if test "x$ac_cv_func_setvbuf" = xyes
  then :
    printf "%s\n" "#define HAVE_SETVBUF 1" >>confdefs.h
  
@@ -57,7 +57,7 @@ index 3dca209..a621d6a 100755
  fi
  ac_fn_c_check_func "$LINENO" "sigaction" "ac_cv_func_sigaction"
  if test "x$ac_cv_func_sigaction" = xyes
-@@ -23610,7 +23598,13 @@ then :
+@@ -23772,7 +23760,13 @@ then :
  else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
@@ -72,7 +72,7 @@ index 3dca209..a621d6a 100755
  int
  main (void)
  {
-@@ -23651,7 +23645,13 @@ then :
+@@ -23813,7 +23807,13 @@ then :
  else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
@@ -87,7 +87,7 @@ index 3dca209..a621d6a 100755
  int
  main (void)
  {
-@@ -23692,7 +23692,13 @@ then :
+@@ -23854,7 +23854,13 @@ then :
  else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
@@ -102,7 +102,7 @@ index 3dca209..a621d6a 100755
  int
  main (void)
  {
-@@ -23733,7 +23739,13 @@ then :
+@@ -23895,7 +23901,13 @@ then :
  else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
@@ -117,7 +117,7 @@ index 3dca209..a621d6a 100755
  int
  main (void)
  {
-@@ -23774,7 +23786,13 @@ then :
+@@ -23936,7 +23948,13 @@ then :
  else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
@@ -132,7 +132,7 @@ index 3dca209..a621d6a 100755
  int
  main (void)
  {
-@@ -23815,7 +23833,13 @@ then :
+@@ -23977,7 +23995,13 @@ then :
  else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
@@ -147,7 +147,7 @@ index 3dca209..a621d6a 100755
  int
  main (void)
  {
-@@ -23848,6 +23872,100 @@ fi
+@@ -24010,6 +24034,100 @@ fi
  
  
  
@@ -249,10 +249,10 @@ index 3dca209..a621d6a 100755
  
  
 diff --git a/configure.ac b/configure.ac
-index 4a19c1a..19907c4 100644
+index 106007b..9a512f7 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5454,7 +5454,7 @@ AC_CHECK_FUNCS([ \
+@@ -5499,7 +5499,7 @@ AC_CHECK_FUNCS([ \
    faccessat fchmod fchmodat fchown fchownat fdopendir fdwalk fexecve \
    fork fork1 fpathconf fstatat ftime ftruncate futimens futimes futimesat \
    gai_strerror getegid geteuid getgid getgrent getgrgid getgrgid_r \
@@ -261,7 +261,7 @@ index 4a19c1a..19907c4 100644
    getpeername getpgid getpid getppid getpriority _getpty \
    getpwent getpwnam_r getpwuid getpwuid_r getresgid getresuid getrusage getsid getspent \
    getspnam getuid getwd grantpt if_nameindex initgroups kill killpg lchown linkat \
-@@ -5471,7 +5471,7 @@ AC_CHECK_FUNCS([ \
+@@ -5516,7 +5516,7 @@ AC_CHECK_FUNCS([ \
    sched_setparam sched_setscheduler sem_clockwait sem_getvalue sem_open \
    sem_timedwait sem_unlink sendfile setegid seteuid setgid sethostname \
    setitimer setlocale setpgid setpgrp setpriority setregid setresgid \
@@ -270,7 +270,7 @@ index 4a19c1a..19907c4 100644
    sigfillset siginterrupt sigpending sigrelse sigtimedwait sigwait \
    sigwaitinfo snprintf splice strftime strlcpy strsignal symlinkat sync \
    sysconf sysctlbyname tcgetpgrp tcsetpgrp tempnam timegm times tmpfile \
-@@ -5738,7 +5738,13 @@ PKG_CHECK_MODULES([LIBZSTD], [libzstd >= 1.4.5], [have_libzstd=yes], [
+@@ -5783,7 +5783,13 @@ PKG_CHECK_MODULES([LIBZSTD], [libzstd >= 1.4.5], [have_libzstd=yes], [
  ])
  
  dnl PY_CHECK_NETDB_FUNC(FUNCTION)
@@ -285,7 +285,7 @@ index 4a19c1a..19907c4 100644
  
  PY_CHECK_NETDB_FUNC([hstrerror])
  dnl not available in WASI yet
-@@ -5747,6 +5753,8 @@ PY_CHECK_NETDB_FUNC([getservbyport])
+@@ -5792,6 +5798,8 @@ PY_CHECK_NETDB_FUNC([getservbyport])
  PY_CHECK_NETDB_FUNC([gethostbyname])
  PY_CHECK_NETDB_FUNC([gethostbyaddr])
  PY_CHECK_NETDB_FUNC([getprotobyname])

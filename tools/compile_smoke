@@ -55,9 +55,21 @@
 # arm makes it load-bearing; run 34732802820's _freeze_module link died
 # on _get_console_type / _PyIO_get_console_type / winconsoleio_spec), so
 # it is wall-listed on windows-msys only — the pristine POSIX tree has
-# no rule for it and must not fail on its absence. No exts, no install:
-# the full runtime build stays the runtime factory's job
-# (TODO.python/05 item 2).
+# no rule for it and must not fail on its absence. No install: the full
+# runtime build stays the runtime factory's job (TODO.python/05 item 2).
+#
+# The windows-msys leg configures the factory's linkage shape,
+# --enable-shared: PE forbids undefined symbols in a loadable module, so
+# the extension set must link the core's import library
+# (tebako-runtime-python PR #16 run 34735362057: Modules/array's .so
+# link died on PyExc_EOFError/_Py_Dealloc undefined refs — the
+# --disable-shared shape is impossible by construction on Windows). The
+# exact casualty is the leg's one LINK regression target:
+# Modules/array$(EXT_SUFFIX) forces the libpython DLL + import library
+# and resolves the core API through them (exports_declspec_msys +
+# configure_shared_mingw_msys, MSYS2 0009/0010). The EXT_SUFFIX spelling
+# flows from the generated Makefile, never a literal. The POSIX leg
+# keeps upstream's static default.
 #
 # Coverage contract (the v0.3.0 gate-gap lesson): the smoke IS the
 # factory's shape — in-tree configure + native make, the same scenario
@@ -71,8 +83,9 @@
 #
 # The windows-msys leg runs NATIVELY inside the msys2 ucrt64 shell on a
 # windows runner — not a cross compile: config.guess sees
-# x86_64-w64-mingw32 and the patched configure takes its mingw arms. The
-# linux-gnu leg (a manifest change attributes wide — ReleaseDiff's
+# x86_64-w64-mingw32 and the patched configure takes its mingw arms,
+# with --enable-shared (the factory's windows linkage shape — above).
+# The linux-gnu leg (a manifest change attributes wide — ReleaseDiff's
 # fail-closed rule) runs the same wall set on the POSIX tree. --prefix is
 # deliberately absent: the factory's A:/t mount-root prefix and its
 # make-parse landmine fix live downstream (tebako-runtime-python round 5);
@@ -95,8 +108,18 @@ WALL_OBJECTS = %w[Python/pylifecycle.o Python/pytime.o Programs/python.o Objects
 # on the platform whose patch set creates it.
 WALL_OBJECTS_MSYS = %w[Modules/_io/winconsoleio.o].freeze
 
+# The shared-shape LINK regression target (windows-msys only): the exact
+# casualty of tebako-runtime-python run 34735362057. Building one stdlib
+# extension's shared module forces the libpython DLL + import library
+# and resolves the core API through them; the EXT_SUFFIX spelling flows
+# from the generated Makefile (SOABI spellings are configure's, never a
+# literal here).
+WALL_LINK_MODULE_MSYS = "Modules/array"
+
 PLATFORM_CONFIG = {
-  "windows-msys" => { "env" => {}, "configure" => ["--disable-shared"] },
+  # The factory's windows linkage shape (PE forbids undefined symbols in
+  # loadable modules — the header comment's run-34735362057 paragraph).
+  "windows-msys" => { "env" => {}, "configure" => ["--enable-shared"] },
   # The pristine-scenario leg: a manifest change attributes wide (the
   # diff's fail-closed rule), so the gate must be able to compile the
   # POSIX tree too — with nothing patched, this leg re-proves upstream.
@@ -159,13 +182,25 @@ buildable, skipped = (auto_objects - wall_objects).uniq.partition do |object|
 end
 objects = wall_objects + buildable
 
+# The windows-msys shared-shape link regression target (WALL_LINK_MODULE_MSYS)
+# — never probed either: a missing shared-module rule there is the
+# linkage regression the leg exists to catch.
+links = []
+if platform == "windows-msys"
+  ext_suffix = makefile[/^EXT_SUFFIX=\s*(\S+)\s*$/, 1] or
+    abort "tools/compile_smoke: no EXT_SUFFIX in the generated Makefile — configure's output is missing"
+  links << "#{WALL_LINK_MODULE_MSYS}#{ext_suffix}"
+end
+targets = objects + links
+
 failing_output = []
-failed = objects.reject do |object|
+failed = targets.reject do |object|
   out, err, status = Open3.capture3("make", "-j2", object, chdir: src)
   failing_output.push("== make #{object} ==\n#{(out.lines + err.lines).last(30).join}") unless status.success?
   status.success?
 end
-abort "tools/compile_smoke: FAIL #{version} (#{platform}): #{failed.join(', ')} did not compile\n#{failing_output.join}" unless failed.empty?
+abort "tools/compile_smoke: FAIL #{version} (#{platform}): #{failed.join(', ')} did not build\n#{failing_output.join}" unless failed.empty?
 
 note = skipped.empty? ? "" : " (n/a in this env, skipped: #{skipped.join(', ')})"
-puts "OK #{version} (#{platform}): configure green, #{objects.size} translation units compile (#{objects.join(', ')})#{note}"
+link_note = links.empty? ? "" : " + link target #{links.join(', ')}"
+puts "OK #{version} (#{platform}): configure green, #{objects.size} translation units compile (#{objects.join(', ')})#{link_note}#{note}"

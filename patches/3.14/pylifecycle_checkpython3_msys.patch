@@ -1,0 +1,47 @@
+# pylifecycle_checkpython3_msys.patch
+#
+# Target:  Include/pylifecycle.h (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0066
+#          "pylifecycle.h: remove conflicting _Py_CheckPython3
+#          declaration" (ported verbatim — no generated files involved)
+#
+# Wall item (observed compile wall, local cross proof of the
+# dynload_win cluster — x86_64-w64-mingw32-gcc 14 on macOS, probe log
+# xlink4.log): with dynload_win_msys selecting DYNLOADFILE=dynload_win.o,
+# the dynload_win.c translation unit dies with
+#   error: static declaration of '_Py_CheckPython3' follows non-static
+#          declaration
+# — the file defines a static _Py_CheckPython3 (its python3.dll preloader,
+# compiled under Py_ENABLE_SHARED) while this header declares the same
+# name with external linkage under MS_WINDOWS. No caller outside
+# dynload_win.c exists, so the declaration is simply dropped. POSIX legs
+# untouched (the symbol is dynload_win-local; the POSIX smoke re-proves
+# the linux-gnu tree compiles).
+#
+# Deliberately NOT ported with it (recorded in the v0.3.3 PR body):
+# MSYS2 0067 (PYTHONLEGACYWINDOWSDLLLOADING — uninstalled-tree test
+# convenience; its mingw_smoketests.py hunk targets an MSYS2-CI-local
+# file upstream does not have), 0068 (GetPythonImport libpython-name
+# port — without it the wrong-python-version guard is inert, not
+# broken: the mingw extension imports "libpython3.14.dll", which never
+# matches the MSVC "python" prefix, so the check passes through),
+# 0069 (backslash normalization — its precondition is MSYS2-fork
+# forward-slash path handling this series does not carry), 0070
+# (suppress the _Py_CheckPython3 preload under mingw — with our
+# PY3_DLLNAME=libpython3.14.dll the preload resolves to the already
+# loaded core DLL and is a harmless no-op; its hunk context also rides
+# on the skipped 0067).
+diff --git a/Include/pylifecycle.h b/Include/pylifecycle.h
+index de1bcb1..edea010 100644
+--- a/Include/pylifecycle.h
++++ b/Include/pylifecycle.h
+@@ -44,9 +44,6 @@ Py_DEPRECATED(3.13) PyAPI_FUNC(wchar_t *) Py_GetProgramFullPath(void);
+ Py_DEPRECATED(3.13) PyAPI_FUNC(wchar_t *) Py_GetPrefix(void);
+ Py_DEPRECATED(3.13) PyAPI_FUNC(wchar_t *) Py_GetExecPrefix(void);
+ Py_DEPRECATED(3.13) PyAPI_FUNC(wchar_t *) Py_GetPath(void);
+-#ifdef MS_WINDOWS
+-int _Py_CheckPython3(void);
+-#endif
+ 
+ /* In their own files */
+ PyAPI_FUNC(const char *) Py_GetVersion(void);

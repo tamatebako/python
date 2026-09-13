@@ -17,7 +17,7 @@
 # "@MODULE_POSIXMODULE_NAME@ posixmodule.c" is produced by
 # posixmodule_nt_msys (MSYS2 0008), so this patch applies after it.
 diff --git a/Modules/Setup.bootstrap.in b/Modules/Setup.bootstrap.in
-index 0a932d4..b835d80 100644
+index ff066b0..42745b7 100644
 --- a/Modules/Setup.bootstrap.in
 +++ b/Modules/Setup.bootstrap.in
 @@ -9,7 +9,7 @@

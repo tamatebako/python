@@ -21,10 +21,10 @@
 # (named opt-in, not a silent removal).
 
 diff --git a/configure b/configure
-index 730c719..26e35e9 100755
+index 0e6b6f3..ae84cd8 100755
 --- a/configure
 +++ b/configure
-@@ -1934,7 +1934,7 @@ Optional Packages:
+@@ -1948,7 +1948,7 @@ Optional Packages:
    --with-pymalloc         enable specialized mallocs (default is yes)
    --with-c-locale-coercion
                            enable C locale coercion to a UTF-8 based locale
@@ -33,7 +33,7 @@ index 730c719..26e35e9 100755
    --with-valgrind         enable Valgrind support (default is no)
    --with-dtrace           enable DTrace support (default is no)
    --with-libm=STRING      override libm math library to STRING (default is
-@@ -19527,7 +19527,10 @@ fi
+@@ -19663,7 +19663,10 @@ fi
  
  if test -z "$with_c_locale_coercion"
  then
@@ -46,10 +46,10 @@ index 730c719..26e35e9 100755
  if test "$with_c_locale_coercion" != "no"
  then
 diff --git a/configure.ac b/configure.ac
-index e1ae5b8..dd093fa 100644
+index 603ab94..e9c187a 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5258,11 +5258,14 @@ AC_MSG_RESULT([$with_pymalloc])
+@@ -5277,11 +5277,14 @@ AC_MSG_RESULT([$with_pymalloc])
  AC_MSG_CHECKING([for --with-c-locale-coercion])
  AC_ARG_WITH(
    [c-locale-coercion],

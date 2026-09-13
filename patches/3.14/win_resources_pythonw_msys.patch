@@ -1,0 +1,425 @@
+# win_resources_pythonw_msys.patch
+#
+# Target:  Makefile.pre.in + PC/python_exe.rc + PC/pythonw_exe.rc +
+#          configure.ac + the generated configure (windows-msys
+#          scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0039
+#          "build: link win resource files and build pythonw" — ported
+#          with ONE anchor elided: the closing configure.ac hunk rides
+#          on the `LIBS="$LIBS -lversion -lshlwapi -lpathcch -lbcrypt"`
+#          mingw case from 0010, which this series deliberately does not
+#          carry (configure_shared_mingw_msys's header: one carrier for
+#          those libraries, the syslibs deviation's post-MODLIBS SYSLIBS
+#          position). The hunk's additions — the FIELD3 patchlevel
+#          computation and the RCFLAGS assembly — are applied verbatim
+#          inside a freshly created mingw case at the same location; the
+#          LIBS line itself stays elided. The generated configure is
+#          REGENERATED with the upstream-pinned autoconf 2.72.
+#
+# Wall item (observed link wall, local cross proof of the shared build
+# — x86_64-w64-mingw32-gcc 14 on macOS, probe log xlink5.log): with the
+# DLL and import library linking clean, the python.exe link died with
+#   crtexewin.c:62: undefined reference to `WinMain'
+# Programs/python.c provides wmain under MS_WINDOWS, and linking a
+# wmain entry point needs -municode; without it the mingw CRT startup
+# that expects WinMain gets pulled and the link fails. The patch
+# rewrites the interpreter link rule with -municode and the
+# python_exe.o version/icon resource, adds the sibling pythonw.exe
+# (-municode -mwindows, the GUI-subsystem variant every windows python
+# install ships) and the DLL's python_nt.o version resource, and
+# teaches altbininstall to install python3w.exe/pythonX.Yw.exe. The
+# .rc hunks switch the icon paths to forward slashes for windres.
+# POSIX legs untouched: every added rule gates on files/objects only
+# the mingw configure path requests (WINDRES is empty elsewhere; the
+# pythonw target joins build_all but its link flags are inert off
+# mingw — and the POSIX smoke leg re-proves the linux-gnu tree).
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index 7b3c0d1..0ad4422 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -38,6 +38,7 @@ CC=		@CC@
+ CXX=		@CXX@
+ LINKCC=		@LINKCC@
+ AR=		@AR@
++WINDRES=	@WINDRES@
+ READELF=	@READELF@
+ SOABI=		@SOABI@
+ ABIFLAGS=	@ABIFLAGS@
+@@ -128,6 +129,7 @@ PY_CORE_LDFLAGS=$(PY_LDFLAGS) $(PY_LDFLAGS_NODIST)
+ CFLAGS_ALIASING=@CFLAGS_ALIASING@
+ # Compilation flags only for ceval.c.
+ CFLAGS_CEVAL=@CFLAGS_CEVAL@
++RCFLAGS=@RCFLAGS@
+ 
+ 
+ # Machine-dependent subdirectories
+@@ -306,6 +308,7 @@ LIBOBJS=	@LIBOBJS@
+ 
+ PYTHON=		python$(EXE)
+ BUILDPYTHON=	python$(BUILDEXE)
++BUILDPYTHONW=	pythonw$(BUILDEXE)
+ 
+ HOSTRUNNER= @HOSTRUNNER@
+ 
+@@ -803,7 +806,7 @@ list-targets:
+ 	@grep -E '^[A-Za-z][-A-Za-z0-9]+:' Makefile | awk -F : '{print $$1}'
+ 
+ .PHONY: build_all
+-build_all:	check-clean-src check-app-store-compliance $(BUILDPYTHON) platform sharedmods \
++build_all:	check-clean-src check-app-store-compliance $(BUILDPYTHON) $(BUILDPYTHONW) platform sharedmods \
+ 		gdbhooks Programs/_testembed scripts checksharedmods rundsymutil build-details.json
+ 
+ .PHONY: build_wasm
+@@ -987,9 +990,21 @@ clinic: check-clean-src
+ clinic-tests: check-clean-src $(srcdir)/Lib/test/clinic.test.c
+ 	$(PYTHON_FOR_REGEN) $(srcdir)/Tools/clinic/clinic.py -f $(srcdir)/Lib/test/clinic.test.c
+ 
++python_exe.o: $(srcdir)/PC/python_exe.rc
++	$(WINDRES) $(RCFLAGS) -I$(srcdir)/Include -I$(srcdir)/PC -I. $(srcdir)/PC/python_exe.rc $@
++
++pythonw_exe.o: $(srcdir)/PC/pythonw_exe.rc
++	$(WINDRES) $(RCFLAGS) -I$(srcdir)/Include -I$(srcdir)/PC -I. $(srcdir)/PC/pythonw_exe.rc $@
++
++python_nt.o: $(srcdir)/PC/python_nt.rc
++	$(WINDRES) $(RCFLAGS) -DORIGINAL_FILENAME=\\\"$(DLLLIBRARY)\\\" -I$(srcdir)/Include -I$(srcdir)/PC -I. $(srcdir)/PC/python_nt.rc $@
++
++$(BUILDPYTHONW): Programs/python.o $(LIBRARY) $(LDLIBRARY) $(PY3LIBRARY) pythonw_exe.o
++	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) -municode -mwindows -o $@ Programs/python.o $(BLDLIBRARY) $(LIBS) $(MODLIBS) $(SYSLIBS) pythonw_exe.o
++
+ # Build the interpreter
+-$(BUILDPYTHON):	Programs/python.o $(LINK_PYTHON_DEPS)
+-	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) -o $@ Programs/python.o $(LINK_PYTHON_OBJS) $(LIBS) $(MODLIBS) $(SYSLIBS)
++$(BUILDPYTHON):	Programs/python.o $(LINK_PYTHON_DEPS) python_exe.o
++	$(LINKCC) $(PY_CORE_LDFLAGS) $(LINKFORSHARED) -municode -o $@ Programs/python.o $(LINK_PYTHON_OBJS) $(LIBS) $(MODLIBS) $(SYSLIBS) python_exe.o
+ 
+ platform: $(PYTHON_FOR_BUILD_DEPS) pybuilddir.txt
+ 	$(RUNSHARED) $(PYTHON_FOR_BUILD) -c 'import sys ; from sysconfig import get_platform ; print("%s-%d.%d" % (get_platform(), *sys.version_info[:2]))' >platform
+@@ -1093,10 +1108,10 @@ $(PYTHONFRAMEWORKDIR)/$(PYTHONFRAMEWORK): \
+ 
+ # This rule builds the Cygwin Python DLL and import library if configured
+ # for a shared core library; otherwise, this rule is a noop.
+-$(DLLLIBRARY) libpython$(LDVERSION).dll.a: $(LIBRARY_OBJS)
++$(DLLLIBRARY) libpython$(LDVERSION).dll.a: $(LIBRARY_OBJS) python_nt.o
+ 	if test -n "$(DLLLIBRARY)"; then \
+ 		$(LDSHARED) -Wl,--out-implib=$@ -o $(DLLLIBRARY) $^ \
+-			$(LIBS) $(MODLIBS) $(SYSLIBS); \
++			$(LIBS) $(LDFLAGS_NODIST) $(MODLIBS) $(SYSLIBS); \
+ 	else true; \
+ 	fi
+ 
+@@ -2442,6 +2457,8 @@ altbininstall: $(BUILDPYTHON) @FRAMEWORKPYTHONW@
+ 	done
+ 	if test "$(PYTHONFRAMEWORKDIR)" = "no-framework" ; then \
+ 		$(INSTALL_PROGRAM) $(BUILDPYTHON) $(DESTDIR)$(BINDIR)/python$(LDVERSION)$(EXE); \
++		$(INSTALL_PROGRAM) $(BUILDPYTHONW) $(DESTDIR)$(BINDIR)/python3w$(EXE); \
++		$(INSTALL_PROGRAM) $(BUILDPYTHONW) $(DESTDIR)$(BINDIR)/python$(LDVERSION)w$(EXE); \
+ 	else \
+ 		$(INSTALL_PROGRAM) $(STRIPFLAG) Mac/pythonw $(DESTDIR)$(BINDIR)/python$(LDVERSION)$(EXE); \
+ 	fi
+diff --git a/PC/python_exe.rc b/PC/python_exe.rc
+index c3d3bff..0d8531d 100644
+--- a/PC/python_exe.rc
++++ b/PC/python_exe.rc
+@@ -12,7 +12,7 @@
+ // current versions of Windows.
+ 1 RT_MANIFEST "python.manifest"
+ 
+-1 ICON DISCARDABLE "icons\python.ico" 
++1 ICON DISCARDABLE "icons/python.ico" 
+ 
+ 
+ /////////////////////////////////////////////////////////////////////////////
+diff --git a/PC/pythonw_exe.rc b/PC/pythonw_exe.rc
+index 38570b7..b879a0f 100644
+--- a/PC/pythonw_exe.rc
++++ b/PC/pythonw_exe.rc
+@@ -12,7 +12,7 @@
+ // current versions of Windows.
+ 1 RT_MANIFEST "python.manifest"
+ 
+-1 ICON DISCARDABLE "icons\pythonw.ico" 
++1 ICON DISCARDABLE "icons/pythonw.ico" 
+ 
+ 
+ /////////////////////////////////////////////////////////////////////////////
+diff --git a/configure b/configure
+index 0d13e3d..1147514 100755
+--- a/configure
++++ b/configure
+@@ -839,6 +839,8 @@ OPENSSL_LIBS
+ OPENSSL_INCLUDES
+ ENSUREPIP
+ CFLAGS_CEVAL
++RCFLAGS
++AWK
+ SRCDIRS
+ PYTHON_OBJS_FROZENMAIN
+ THREADHEADERS
+@@ -957,6 +959,7 @@ INSTALL_DATA
+ INSTALL_SCRIPT
+ INSTALL_PROGRAM
+ ARFLAGS
++WINDRES
+ ac_ct_AR
+ AR
+ LINK_PYTHON_OBJS
+@@ -8139,6 +8142,113 @@ esac
+ fi
+ 
+ 
++# windres program
++
++if test -n "$ac_tool_prefix"; then
++  # Extract the first word of "${ac_tool_prefix}windres", so it can be a program name with args.
++set dummy ${ac_tool_prefix}windres; ac_word=$2
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
++printf %s "checking for $ac_word... " >&6; }
++if test ${ac_cv_prog_WINDRES+y}
++then :
++  printf %s "(cached) " >&6
++else case e in #(
++  e) if test -n "$WINDRES"; then
++  ac_cv_prog_WINDRES="$WINDRES" # Let the user override the test.
++else
++as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
++for as_dir in $PATH
++do
++  IFS=$as_save_IFS
++  case $as_dir in #(((
++    '') as_dir=./ ;;
++    */) ;;
++    *) as_dir=$as_dir/ ;;
++  esac
++    for ac_exec_ext in '' $ac_executable_extensions; do
++  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
++    ac_cv_prog_WINDRES="${ac_tool_prefix}windres"
++    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
++    break 2
++  fi
++done
++  done
++IFS=$as_save_IFS
++
++fi ;;
++esac
++fi
++WINDRES=$ac_cv_prog_WINDRES
++if test -n "$WINDRES"; then
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $WINDRES" >&5
++printf "%s\n" "$WINDRES" >&6; }
++else
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
++printf "%s\n" "no" >&6; }
++fi
++
++
++fi
++if test -z "$ac_cv_prog_WINDRES"; then
++  ac_ct_WINDRES=$WINDRES
++  # Extract the first word of "windres", so it can be a program name with args.
++set dummy windres; ac_word=$2
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
++printf %s "checking for $ac_word... " >&6; }
++if test ${ac_cv_prog_ac_ct_WINDRES+y}
++then :
++  printf %s "(cached) " >&6
++else case e in #(
++  e) if test -n "$ac_ct_WINDRES"; then
++  ac_cv_prog_ac_ct_WINDRES="$ac_ct_WINDRES" # Let the user override the test.
++else
++as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
++for as_dir in $PATH
++do
++  IFS=$as_save_IFS
++  case $as_dir in #(((
++    '') as_dir=./ ;;
++    */) ;;
++    *) as_dir=$as_dir/ ;;
++  esac
++    for ac_exec_ext in '' $ac_executable_extensions; do
++  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
++    ac_cv_prog_ac_ct_WINDRES="windres"
++    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
++    break 2
++  fi
++done
++  done
++IFS=$as_save_IFS
++
++fi ;;
++esac
++fi
++ac_ct_WINDRES=$ac_cv_prog_ac_ct_WINDRES
++if test -n "$ac_ct_WINDRES"; then
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_ct_WINDRES" >&5
++printf "%s\n" "$ac_ct_WINDRES" >&6; }
++else
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
++printf "%s\n" "no" >&6; }
++fi
++
++  if test "x$ac_ct_WINDRES" = x; then
++    WINDRES=""
++  else
++    case $cross_compiling:$ac_tool_warned in
++yes:)
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
++printf "%s\n" "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
++ac_tool_warned=yes ;;
++esac
++    WINDRES=$ac_ct_WINDRES
++  fi
++else
++  WINDRES="$ac_cv_prog_WINDRES"
++fi
++
++
+ # tweak ARFLAGS only if the user didn't set it on the command line
+ 
+ if test -z "$ARFLAGS"
+@@ -31077,6 +31187,85 @@ done
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: done" >&5
+ printf "%s\n" "done" >&6; }
+ 
++case $host in
++  *-*-mingw*)
++    for ac_prog in gawk mawk nawk awk
++do
++  # Extract the first word of "$ac_prog", so it can be a program name with args.
++set dummy $ac_prog; ac_word=$2
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
++printf %s "checking for $ac_word... " >&6; }
++if test ${ac_cv_prog_AWK+y}
++then :
++  printf %s "(cached) " >&6
++else case e in #(
++  e) if test -n "$AWK"; then
++  ac_cv_prog_AWK="$AWK" # Let the user override the test.
++else
++as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
++for as_dir in $PATH
++do
++  IFS=$as_save_IFS
++  case $as_dir in #(((
++    '') as_dir=./ ;;
++    */) ;;
++    *) as_dir=$as_dir/ ;;
++  esac
++    for ac_exec_ext in '' $ac_executable_extensions; do
++  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
++    ac_cv_prog_AWK="$ac_prog"
++    printf "%s\n" "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
++    break 2
++  fi
++done
++  done
++IFS=$as_save_IFS
++
++fi ;;
++esac
++fi
++AWK=$ac_cv_prog_AWK
++if test -n "$AWK"; then
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $AWK" >&5
++printf "%s\n" "$AWK" >&6; }
++else
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
++printf "%s\n" "no" >&6; }
++fi
++
++
++  test -n "$AWK" && break
++done
++
++    if test "$AWK" = "gawk"; then
++      awk_extra_flag="--non-decimal-data"
++    fi
++    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking FIELD3" >&5
++printf %s "checking FIELD3... " >&6; }
++    FIELD3=$($AWK $awk_extra_flag '\
++      /^#define PY_RELEASE_LEVEL_/             {levels[$2]=$3}    \
++      /^#define PY_MICRO_VERSION[[:space:]]+/  {micro=$3}         \
++      /^#define PY_RELEASE_LEVEL[[:space:]]+/  {level=levels[$3]} \
++      /^#define PY_RELEASE_SERIAL[[:space:]]+/ {serial=$3}        \
++      END {print micro * 1000 + level * 10 + serial}' \
++      $srcdir/Include/patchlevel.h
++    )
++
++    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: ${FIELD3}" >&5
++printf "%s\n" "${FIELD3}" >&6; }
++    RCFLAGS="$RCFLAGS -DFIELD3=$FIELD3 -O COFF"
++
++    case $host in
++      i686*)  RCFLAGS="$RCFLAGS --target=pe-i386" ;;
++      x86_64*)  RCFLAGS="$RCFLAGS --target=pe-x86-64" ;;
++      *) ;;
++    esac
++  ;;
++  *)
++  ;;
++esac
++
++
+ # Availability of -O2:
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for -O2" >&5
+ printf %s "checking for -O2... " >&6; }
+@@ -36582,6 +36771,7 @@ ac_pwd='$ac_pwd'
+ srcdir='$srcdir'
+ INSTALL='$INSTALL'
+ MKDIR_P='$MKDIR_P'
++AWK='$AWK'
+ test -n "\$AWK" || AWK=awk
+ _ACEOF
+ 
+diff --git a/configure.ac b/configure.ac
+index e96de20..b9cf7ce 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1733,6 +1733,10 @@ AC_SUBST([LINK_PYTHON_OBJS])
+ AC_SUBST([AR])
+ AC_CHECK_TOOLS([AR], [ar aal], [ar])
+ 
++# windres program
++AC_SUBST(WINDRES)
++AC_CHECK_TOOL(WINDRES, windres)
++
+ # tweak ARFLAGS only if the user didn't set it on the command line
+ AC_SUBST([ARFLAGS])
+ if test -z "$ARFLAGS"
+@@ -7646,6 +7650,36 @@ for dir in $SRCDIRS; do
+ done
+ AC_MSG_RESULT([done])
+ 
++case $host in
++  *-*-mingw*)
++    AC_PROG_AWK
++    if test "$AWK" = "gawk"; then
++      awk_extra_flag="--non-decimal-data"
++    fi
++    AC_MSG_CHECKING([FIELD3])
++    FIELD3=$($AWK $awk_extra_flag '\
++      /^#define PY_RELEASE_LEVEL_/             {levels[$2]=$3}    \
++      /^#define PY_MICRO_VERSION[[:space:]]+/  {micro=$3}         \
++      /^#define PY_RELEASE_LEVEL[[:space:]]+/  {level=levels[$3]} \
++      /^#define PY_RELEASE_SERIAL[[:space:]]+/ {serial=$3}        \
++      END {print micro * 1000 + level * 10 + serial}' \
++      $srcdir/Include/patchlevel.h
++    )
++
++    AC_MSG_RESULT([${FIELD3}])
++    RCFLAGS="$RCFLAGS -DFIELD3=$FIELD3 -O COFF"
++
++    case $host in
++      i686*)  RCFLAGS="$RCFLAGS --target=pe-i386" ;;
++      x86_64*)  RCFLAGS="$RCFLAGS --target=pe-x86-64" ;;
++      *) ;;
++    esac
++  ;;
++  *)
++  ;;
++esac
++AC_SUBST(RCFLAGS)
++
+ # Availability of -O2:
+ AC_CACHE_CHECK([for -O2], [ac_cv_compile_o2], [
+ saved_cflags="$CFLAGS"

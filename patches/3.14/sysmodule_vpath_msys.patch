@@ -15,10 +15,10 @@
 # @srcdir@-substituted; in-tree it is ".", matching the build shape the
 # factory drives).
 diff --git a/Makefile.pre.in b/Makefile.pre.in
-index b3f3eee..a4c738b 100644
+index 0ad4422..0c117a0 100644
 --- a/Makefile.pre.in
 +++ b/Makefile.pre.in
-@@ -1973,6 +1973,7 @@ Python/dynload_hpux.o: $(srcdir)/Python/dynload_hpux.c Makefile
+@@ -1995,6 +1995,7 @@ Python/dynload_win.o: $(srcdir)/Python/dynload_win.c Makefile
  Python/sysmodule.o: $(srcdir)/Python/sysmodule.c Makefile $(srcdir)/Include/pydtrace.h
  	$(CC) -c $(PY_CORE_CFLAGS) \
  		-DABIFLAGS='"$(ABIFLAGS)"' \

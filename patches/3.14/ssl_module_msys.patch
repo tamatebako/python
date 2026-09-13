@@ -73,10 +73,10 @@ index 0f45b2f..680b2c4 100644
  #ifndef _SSL_ENUM_CERTIFICATES_METHODDEF
      #define _SSL_ENUM_CERTIFICATES_METHODDEF
 diff --git a/configure b/configure
-index 26e35e9..3dca209 100755
+index ae84cd8..4a2eed1 100755
 --- a/configure
 +++ b/configure
-@@ -34694,7 +34694,7 @@ fi
+@@ -35018,7 +35018,7 @@ fi
  then :
  
      as_fn_append MODULE_BLOCK "MODULE__SSL_CFLAGS=$OPENSSL_INCLUDES$as_nl"
@@ -86,10 +86,10 @@ index 26e35e9..3dca209 100755
  fi
     if test "$py_cv_module__ssl" = yes; then
 diff --git a/configure.ac b/configure.ac
-index dd093fa..4a19c1a 100644
+index e9c187a..106007b 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -8520,7 +8520,7 @@ PY_STDLIB_MOD([_zstd], [], [test "$have_libzstd" = yes],
+@@ -8663,7 +8663,7 @@ PY_STDLIB_MOD([_zstd], [], [test "$have_libzstd" = yes],
  
  dnl OpenSSL bindings
  PY_STDLIB_MOD([_ssl], [], [test "$ac_cv_working_openssl_ssl" = yes],

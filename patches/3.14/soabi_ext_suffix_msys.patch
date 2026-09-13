@@ -1,0 +1,106 @@
+# soabi_ext_suffix_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys
+#          scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0014
+#          "build: Configure SOABI and EXT_SUFFIX for MINGW" (ported
+#          verbatim; the generated configure is regenerated with the
+#          upstream-pinned autoconf 2.72, not hand-synced)
+#
+# Cluster item (forced by dynload_win_msys — see that header for the
+# wall narrative and the coherence argument). Gives mingw the
+# pycore_importdl.h-shaped SOABI — cp<ver><thread>-<PYD_PLATFORM_TAG>
+# (e.g. cp314-mingw_x86_64_ucrt_gnu) — and EXT_SUFFIX
+# .<SOABI>.pyd, byte-for-byte the suffix dynload_win's
+# PYD_TAGGED_SUFFIX asks the filesystem for. Observable rename in the
+# windows-msys tree: stdlib extension modules change spelling from
+# Modules/array.cpython-314.so to
+# Modules/array.cp314-mingw_x86_64_ucrt_gnu.pyd (and likewise under
+# lib-dynload in the installed tree); consumers must read EXT_SUFFIX
+# from sysconfig/the generated Makefile rather than hardcoding .so.
+# POSIX legs untouched (mingw* case arms only).
+diff --git a/configure b/configure
+index 226aee0..c5c4d2b 100755
+--- a/configure
++++ b/configure
+@@ -27473,7 +27473,10 @@ printf %s "checking ABIFLAGS... " >&6; }
+ printf "%s\n" "$ABIFLAGS" >&6; }
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking SOABI" >&5
+ printf %s "checking SOABI... " >&6; }
+-SOABI='cpython-'`echo $VERSION | tr -d .`${ABIFLAGS}${SOABI_PLATFORM:+-$SOABI_PLATFORM}
++case $host_os in
++    mingw*) SOABI='cp'`echo $VERSION | tr -d .`${ABI_THREAD}-${PYD_PLATFORM_TAG};;
++    *) SOABI='cpython-'`echo $VERSION | tr -d .`${ABIFLAGS}${SOABI_PLATFORM:+-$SOABI_PLATFORM};;
++esac
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $SOABI" >&5
+ printf "%s\n" "$SOABI" >&6; }
+ 
+@@ -27482,14 +27485,24 @@ printf "%s\n" "$SOABI" >&6; }
+ if test "$Py_DEBUG" = 'true'; then
+   # Similar to SOABI but remove "d" flag from ABIFLAGS
+ 
+-  ALT_SOABI='cpython-'`echo $VERSION | tr -d .``echo $ABIFLAGS | tr -d d`${SOABI_PLATFORM:+-$SOABI_PLATFORM}
++  case $host_os in
++      mingw*) ALT_SOABI='cp'`echo $VERSION | tr -d .`${ABI_THREAD}-${PYD_PLATFORM_TAG};;
++      *) ALT_SOABI='cpython-'`echo $VERSION | tr -d .``echo $ABIFLAGS | tr -d d`${SOABI_PLATFORM:+-$SOABI_PLATFORM};;
++  esac
+ 
+ printf "%s\n" "#define ALT_SOABI \"${ALT_SOABI}\"" >>confdefs.h
+ 
+ fi
+ 
+ 
+-EXT_SUFFIX=.${SOABI}${SHLIB_SUFFIX}
++PYD_DEBUG_SUFFIX=""
++if test "$Py_DEBUG" = "true"; then
++  PYD_DEBUG_SUFFIX="_d"
++fi
++case $host_os in
++    mingw*) EXT_SUFFIX=${PYD_DEBUG_SUFFIX}.${SOABI}${SHLIB_SUFFIX};;
++    *) EXT_SUFFIX=.${SOABI}${SHLIB_SUFFIX};;
++esac
+ 
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking LDVERSION" >&5
+ printf %s "checking LDVERSION... " >&6; }
+diff --git a/configure.ac b/configure.ac
+index fa32c71..fa6e022 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -6642,7 +6642,10 @@ AC_SUBST([SOABI])
+ AC_MSG_CHECKING([ABIFLAGS])
+ AC_MSG_RESULT([$ABIFLAGS])
+ AC_MSG_CHECKING([SOABI])
+-SOABI='cpython-'`echo $VERSION | tr -d .`${ABIFLAGS}${SOABI_PLATFORM:+-$SOABI_PLATFORM}
++case $host_os in
++    mingw*) SOABI='cp'`echo $VERSION | tr -d .`${ABI_THREAD}-${PYD_PLATFORM_TAG};;
++    *) SOABI='cpython-'`echo $VERSION | tr -d .`${ABIFLAGS}${SOABI_PLATFORM:+-$SOABI_PLATFORM};;
++esac
+ AC_MSG_RESULT([$SOABI])
+ 
+ # Release build, debug build (Py_DEBUG), and trace refs build (Py_TRACE_REFS)
+@@ -6650,13 +6653,23 @@ AC_MSG_RESULT([$SOABI])
+ if test "$Py_DEBUG" = 'true'; then
+   # Similar to SOABI but remove "d" flag from ABIFLAGS
+   AC_SUBST([ALT_SOABI])
+-  ALT_SOABI='cpython-'`echo $VERSION | tr -d .``echo $ABIFLAGS | tr -d d`${SOABI_PLATFORM:+-$SOABI_PLATFORM}
++  case $host_os in
++      mingw*) ALT_SOABI='cp'`echo $VERSION | tr -d .`${ABI_THREAD}-${PYD_PLATFORM_TAG};;
++      *) ALT_SOABI='cpython-'`echo $VERSION | tr -d .``echo $ABIFLAGS | tr -d d`${SOABI_PLATFORM:+-$SOABI_PLATFORM};;
++  esac
+   AC_DEFINE_UNQUOTED([ALT_SOABI], ["${ALT_SOABI}"],
+             [Alternative SOABI used in debug build to load C extensions built in release mode])
+ fi
+ 
+ AC_SUBST([EXT_SUFFIX])
+-EXT_SUFFIX=.${SOABI}${SHLIB_SUFFIX}
++PYD_DEBUG_SUFFIX=""
++if test "$Py_DEBUG" = "true"; then
++  PYD_DEBUG_SUFFIX="_d"
++fi
++case $host_os in
++    mingw*) EXT_SUFFIX=${PYD_DEBUG_SUFFIX}.${SOABI}${SHLIB_SUFFIX};;
++    *) EXT_SUFFIX=.${SOABI}${SHLIB_SUFFIX};;
++esac
+ 
+ AC_MSG_CHECKING([LDVERSION])
+ LDVERSION='$(VERSION)$(ABIFLAGS)'

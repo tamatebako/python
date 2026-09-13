@@ -1,0 +1,188 @@
+# pyd_platform_tag_msys.patch
+#
+# Target:  configure.ac + Makefile.pre.in + the generated configure
+#          (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0011
+#          "build: Add PYD_PLATFORM_TAG" (ported verbatim; the generated
+#          configure is regenerated with the upstream-pinned autoconf
+#          2.72, not hand-synced)
+#
+# Cluster item (forced by dynload_win_msys, which is forced by the
+# PyWin_DLLhModule link wall — see the dynload_win_msys header for the
+# wall narrative). PYD_PLATFORM_TAG ("mingw_<cpu>_<crt>_<toolchain>",
+# e.g. mingw_x86_64_ucrt_gnu) is the mingw analogue of PC/pyconfig.h's
+# win_amd64: it is AC_SUBST'd into the Makefile, passed to the
+# dynload_win.o compile by dynload_win_msys's rule, and interpolated
+# into pycore_importdl.h's PYD_SOABI — the run-time import filetab —
+# and into SOABI/EXT_SUFFIX by soabi_ext_suffix_msys, so the name the
+# builder writes is the name the importer looks for. Previously
+# deferred as system-python interop naming; the dynload_win switch
+# makes it load-bearing. POSIX legs untouched (the whole block gates
+# on $host_os = mingw*).
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index 526d500..12edd93 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -175,6 +175,7 @@ CONFINCLUDEPY=	$(CONFINCLUDEDIR)/python$(LDVERSION)
+ # Symbols used for using shared libraries
+ SHLIB_SUFFIX=	@SHLIB_SUFFIX@
+ EXT_SUFFIX=	@EXT_SUFFIX@
++PYD_PLATFORM_TAG = @PYD_PLATFORM_TAG@
+ LDSHARED=	@LDSHARED@ $(PY_LDFLAGS)
+ BLDSHARED=	@BLDSHARED@ $(PY_CORE_LDFLAGS)
+ LDCXXSHARED=	@LDCXXSHARED@ $(PY_LDFLAGS)
+diff --git a/configure b/configure
+index 651398a..9291864 100755
+--- a/configure
++++ b/configure
+@@ -847,6 +847,7 @@ MODULE_DEPS_SHARED
+ EXT_SUFFIX
+ ALT_SOABI
+ SOABI
++PYD_PLATFORM_TAG
+ LIBC
+ LIBM
+ HAVE_GETHOSTBYNAME
+@@ -27370,6 +27371,76 @@ printf "%s\n" "#define AC_APPLE_UNIVERSAL_BUILD 1" >>confdefs.h
+  esac
+ 
+ 
++
++# Special case of PYD_PLATFORM_TAG with python build with mingw.
++# Python can with different cpu arch and c runtime as well as different
++# toolchain. We follow this`mingw_<cpu_arch>_<c_runtime>_<toolchain>`
++# convention for PYD_PLATFORM_TAG. Where:
++# `cpu_arch` = `x86_64`, `aarch64` or `i686`
++# `c_runtime` = `msvcrt` or `ucrt`
++# `toolchain` = `gnu` or `llvm`
++PYD_PLATFORM_TAG=""
++case $host in
++  *-*-mingw*)
++    # check if we are linking to ucrt
++    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether linking to ucrt" >&5
++printf %s "checking whether linking to ucrt... " >&6; }
++    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++
++    #include <stdio.h>
++    #ifndef _UCRT
++        #error no ucrt
++    #endif
++    int main(){ return 0; }
++
++_ACEOF
++if ac_fn_c_try_compile "$LINENO"
++then :
++  linking_to_ucrt=yes
++else case e in #(
++  e) linking_to_ucrt=no ;;
++esac
++fi
++rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
++    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $linking_to_ucrt" >&5
++printf "%s\n" "$linking_to_ucrt" >&6; }
++    ;;
++esac
++case $host_os in
++    mingw*)
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking PYD_PLATFORM_TAG" >&5
++printf %s "checking PYD_PLATFORM_TAG... " >&6; }
++  PYD_PLATFORM_TAG="mingw"
++  case $host in
++  i686-*-mingw*)
++    PYD_PLATFORM_TAG+="_i686"
++    ;;
++  x86_64-*-mingw*)
++    PYD_PLATFORM_TAG+="_x86_64"
++    ;;
++  aarch64-*-mingw*)
++    PYD_PLATFORM_TAG+="_aarch64"
++    ;;
++  armv7-*-mingw*)
++    PYD_PLATFORM_TAG+="_armv7"
++    ;;
++  esac
++  if test $linking_to_ucrt = no; then
++    PYD_PLATFORM_TAG+="_msvcrt"
++  else
++    PYD_PLATFORM_TAG+="_ucrt"
++  fi
++  if test "$ac_cv_cc_name" = "clang"; then
++    # it is CLANG32
++    PYD_PLATFORM_TAG+="_llvm"
++  else
++    PYD_PLATFORM_TAG+="_gnu"
++  fi
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $PYD_PLATFORM_TAG" >&5
++printf "%s\n" "$PYD_PLATFORM_TAG" >&6; }
++esac
++
+ # ABI version string for Python extension modules.  This appears between the
+ # periods in shared library file names, e.g. foo.<SOABI>.so.  It is calculated
+ # from the following attributes which affect the ABI of this Python build (in
+diff --git a/configure.ac b/configure.ac
+index 656825c..2f0b329 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -6558,6 +6558,61 @@ esac
+ # check for endianness
+ AC_C_BIGENDIAN
+ 
++AC_SUBST(PYD_PLATFORM_TAG)
++# Special case of PYD_PLATFORM_TAG with python build with mingw.
++# Python can with different cpu arch and c runtime as well as different
++# toolchain. We follow this`mingw_<cpu_arch>_<c_runtime>_<toolchain>`
++# convention for PYD_PLATFORM_TAG. Where:
++# `cpu_arch` = `x86_64`, `aarch64` or `i686`
++# `c_runtime` = `msvcrt` or `ucrt`
++# `toolchain` = `gnu` or `llvm`
++PYD_PLATFORM_TAG=""
++case $host in
++  *-*-mingw*)
++    # check if we are linking to ucrt
++    AC_MSG_CHECKING(whether linking to ucrt)
++    AC_COMPILE_IFELSE([AC_LANG_SOURCE([[
++    #include <stdio.h>
++    #ifndef _UCRT
++        #error no ucrt
++    #endif
++    int main(){ return 0; }
++    ]])],[linking_to_ucrt=yes],[linking_to_ucrt=no])
++    AC_MSG_RESULT($linking_to_ucrt)
++    ;;
++esac
++case $host_os in
++    mingw*)
++  AC_MSG_CHECKING(PYD_PLATFORM_TAG)
++  PYD_PLATFORM_TAG="mingw"
++  case $host in
++  i686-*-mingw*)
++    PYD_PLATFORM_TAG+="_i686"
++    ;;
++  x86_64-*-mingw*)
++    PYD_PLATFORM_TAG+="_x86_64"
++    ;;
++  aarch64-*-mingw*)
++    PYD_PLATFORM_TAG+="_aarch64"
++    ;;
++  armv7-*-mingw*)
++    PYD_PLATFORM_TAG+="_armv7"
++    ;;
++  esac
++  if test $linking_to_ucrt = no; then
++    PYD_PLATFORM_TAG+="_msvcrt"
++  else
++    PYD_PLATFORM_TAG+="_ucrt"
++  fi
++  if test "$ac_cv_cc_name" = "clang"; then
++    # it is CLANG32
++    PYD_PLATFORM_TAG+="_llvm"
++  else
++    PYD_PLATFORM_TAG+="_gnu"
++  fi
++  AC_MSG_RESULT($PYD_PLATFORM_TAG)
++esac
++
+ # ABI version string for Python extension modules.  This appears between the
+ # periods in shared library file names, e.g. foo.<SOABI>.so.  It is calculated
+ # from the following attributes which affect the ABI of this Python build (in

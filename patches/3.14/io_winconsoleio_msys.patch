@@ -20,7 +20,7 @@
 # regen against pristine proven, no hand-sync; pyconfig.h.in is
 # untouched: no AC_DEFINE involved).
 diff --git a/Modules/Setup.bootstrap.in b/Modules/Setup.bootstrap.in
-index b835d80..7ded797 100644
+index 42745b7..cde6580 100644
 --- a/Modules/Setup.bootstrap.in
 +++ b/Modules/Setup.bootstrap.in
 @@ -19,7 +19,7 @@ _datetime _datetimemodule.c
@@ -33,10 +33,10 @@ index b835d80..7ded797 100644
  _sre _sre/sre.c
  _sysconfig _sysconfig.c
 diff --git a/Modules/Setup.stdlib.in b/Modules/Setup.stdlib.in
-index 0f92ef4..d686a83 100644
+index a0fc4b4..fa1b8f4 100644
 --- a/Modules/Setup.stdlib.in
 +++ b/Modules/Setup.stdlib.in
-@@ -186,6 +186,7 @@
+@@ -192,6 +192,7 @@
  @MODULE__TESTMULTIPHASE_TRUE@_testmultiphase _testmultiphase.c
  @MODULE__TESTSINGLEPHASE_TRUE@_testsinglephase _testsinglephase.c
  @MODULE__CTYPES_TEST_TRUE@_ctypes_test _ctypes/_ctypes_test.c
@@ -45,7 +45,7 @@ index 0f92ef4..d686a83 100644
  # Limited API template modules; must be built as shared modules.
  @MODULE_XXLIMITED_TRUE@xxlimited xxlimited.c
 diff --git a/configure b/configure
-index 0c49e64..3675f6c 100755
+index 049eaaa..0d13e3d 100755
 --- a/configure
 +++ b/configure
 @@ -650,6 +650,8 @@ MODULE_XXLIMITED_FALSE
@@ -57,7 +57,7 @@ index 0c49e64..3675f6c 100755
  MODULE__XXTESTFUZZ_FALSE
  MODULE__XXTESTFUZZ_TRUE
  MODULE_XXSUBTYPE_FALSE
-@@ -35133,6 +35135,46 @@ fi
+@@ -35469,6 +35471,46 @@ fi
  printf "%s\n" "$py_cv_module__xxtestfuzz" >&6; }
  
  
@@ -104,7 +104,7 @@ index 0c49e64..3675f6c 100755
    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module _ctypes_test" >&5
  printf %s "checking for stdlib extension module _ctypes_test... " >&6; }
          if test "$py_cv_module__ctypes_test" != "n/a"
-@@ -35699,6 +35741,10 @@ if test -z "${MODULE__XXTESTFUZZ_TRUE}" && test -z "${MODULE__XXTESTFUZZ_FALSE}"
+@@ -36055,6 +36097,10 @@ if test -z "${MODULE__XXTESTFUZZ_TRUE}" && test -z "${MODULE__XXTESTFUZZ_FALSE}"
    as_fn_error $? "conditional \"MODULE__XXTESTFUZZ\" was never defined.
  Usually this means the macro was only invoked conditionally." "$LINENO" 5
  fi
@@ -116,10 +116,10 @@ index 0c49e64..3675f6c 100755
    as_fn_error $? "conditional \"MODULE__CTYPES_TEST\" was never defined.
  Usually this means the macro was only invoked conditionally." "$LINENO" 5
 diff --git a/configure.ac b/configure.ac
-index 3f367cc..0d73a2e 100644
+index 635b138..e96de20 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -8532,6 +8532,7 @@ PY_STDLIB_MOD([_testmultiphase], [test "$TEST_MODULES" = yes], [test "$ac_cv_fun
+@@ -8650,6 +8650,7 @@ PY_STDLIB_MOD([_testmultiphase], [test "$TEST_MODULES" = yes], [test "$ac_cv_fun
  PY_STDLIB_MOD([_testsinglephase], [test "$TEST_MODULES" = yes], [test "$ac_cv_func_dlopen" = yes])
  PY_STDLIB_MOD([xxsubtype], [test "$TEST_MODULES" = yes])
  PY_STDLIB_MOD([_xxtestfuzz], [test "$TEST_MODULES" = yes])

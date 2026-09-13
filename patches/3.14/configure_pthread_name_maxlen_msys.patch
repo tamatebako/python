@@ -12,26 +12,40 @@
 # the autotools mingw build dies on the undeclared identifier. The patch
 # sets the MSVC value (32766) for MINGW hosts.
 diff --git a/configure b/configure
-index 6dac703..1b8d088 100755
+index d14cfe6..e250048 100755
 --- a/configure
 +++ b/configure
-@@ -32285,6 +32285,7 @@ case "$ac_sys_system" in
-   iOS) _PYTHREAD_NAME_MAXLEN=63;;
-   FreeBSD*) _PYTHREAD_NAME_MAXLEN=19;; # gh-131268
-   OpenBSD*) _PYTHREAD_NAME_MAXLEN=23;; # gh-131268
-+  MINGW*) _PYTHREAD_NAME_MAXLEN=32766;;
-   *) _PYTHREAD_NAME_MAXLEN=;;
- esac
- if test -n "$_PYTHREAD_NAME_MAXLEN"; then
+@@ -10418,6 +10418,14 @@ then :
+ 
+     CFLAGS_NODIST="$CFLAGS_NODIST -std=c11"
+ 
++    # GCC 14 and later error out with incompatible-pointer-types
++    # this only occues on mingw
++    case $host in
++    *-*-mingw*)
++        CFLAGS_NODIST="$CFLAGS_NODIST -Wno-error=incompatible-pointer-types"
++      ;;
++    esac
++
+ 
+ 
+   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wextra" >&5
 diff --git a/configure.ac b/configure.ac
-index d47bcda..2f834f0 100644
+index 3d2b46e..705bea1 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -8067,6 +8067,7 @@ case "$ac_sys_system" in
-   iOS) _PYTHREAD_NAME_MAXLEN=63;;
-   FreeBSD*) _PYTHREAD_NAME_MAXLEN=19;; # gh-131268
-   OpenBSD*) _PYTHREAD_NAME_MAXLEN=23;; # gh-131268
-+  MINGW*) _PYTHREAD_NAME_MAXLEN=32766;;
-   *) _PYTHREAD_NAME_MAXLEN=;;
- esac
- if test -n "$_PYTHREAD_NAME_MAXLEN"; then
+@@ -2599,6 +2599,14 @@ fi
+ AS_VAR_IF([ac_cv_gcc_compat], [yes], [
+     CFLAGS_NODIST="$CFLAGS_NODIST -std=c11"
+ 
++    # GCC 14 and later error out with incompatible-pointer-types
++    # this only occues on mingw
++    case $host in
++    *-*-mingw*)
++        CFLAGS_NODIST="$CFLAGS_NODIST -Wno-error=incompatible-pointer-types"
++      ;;
++    esac
++
+     PY_CHECK_CC_WARNING([enable], [extra], [if we can add -Wextra])
+     AS_VAR_IF([ac_cv_enable_extra_warning], [yes],
+               [CFLAGS_NODIST="$CFLAGS_NODIST -Wextra"])

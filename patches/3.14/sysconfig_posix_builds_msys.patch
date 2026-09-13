@@ -1,0 +1,95 @@
+# sysconfig_posix_builds_msys.patch
+#
+# Target:  Lib/sysconfig/__init__.py (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0020
+#          "sysconfig: treat MINGW builds as POSIX builds" (verbatim)
+#
+# Wall (trp CI run 34748169561, windows 3.14.7 leg, the v0.3.3 shared
+# build's main make): the pybuilddir.txt rule runs
+# `./python.exe -E -S -m sysconfig --generate-posix-vars`, whose
+# post-write step does `install_vars['srcdir'] = install_vars['LIBPL']`:
+#
+#   Written build/lib.win32-3.14\_sysconfigdata__win32_.py
+#   KeyError: 'LIBPL'
+#   make: *** [Makefile:1179: pybuilddir.txt] Error 1
+#
+# Upstream get_config_vars() takes _init_non_posix on os.name == 'nt',
+# which never merges the Makefile-parsed build_time_vars (the posix half
+# — _init_posix — is the only path that carries LIBPL, LIBDIR, BINDIR
+# and the rest of the Makefile set). MSYS2's answer: every nt special
+# case in sysconfig gains `and not sys._is_mingw`, the two posix checks
+# gain `or sys._is_mingw` (the flag itself is MSYS2 0003,
+# sysmodule_mingw_flags_msys). Beyond the LIBPL wall this also makes
+# get_config_h_filename read the build root's autotools pyconfig.h (the
+# nt branch reads PC/pyconfig.h — the MSVC config the write step was
+# silently parsing instead) and gives the mingw interpreter the posix
+# install schemes — the same layout the factory bakes into the image
+# (lib/python3.14), so runtime sysconfig consumers (pip installs into
+# mounted payloads) resolve the image's real paths.
+diff --git a/Lib/sysconfig/__init__.py b/Lib/sysconfig/__init__.py
+index faf8273..b80e934 100644
+--- a/Lib/sysconfig/__init__.py
++++ b/Lib/sysconfig/__init__.py
+@@ -101,7 +101,7 @@ _INSTALL_SCHEMES = {
+     }
+ 
+ # For the OS-native venv scheme, we essentially provide an alias:
+-if os.name == 'nt':
++if os.name == 'nt' and not sys._is_mingw:
+     _INSTALL_SCHEMES['venv'] = _INSTALL_SCHEMES['nt_venv']
+ else:
+     _INSTALL_SCHEMES['venv'] = _INSTALL_SCHEMES['posix_venv']
+@@ -125,7 +125,7 @@ def _getuserbase():
+     def joinuser(*args):
+         return os.path.expanduser(os.path.join(*args))
+ 
+-    if os.name == "nt":
++    if os.name == "nt" and not sys._is_mingw:
+         base = os.environ.get("APPDATA") or "~"
+         return joinuser(base,  _get_implementation())
+ 
+@@ -287,7 +287,7 @@ def _expand_vars(scheme, vars):
+ 
+ 
+ def _get_preferred_schemes():
+-    if os.name == 'nt':
++    if os.name == 'nt' and not sys._is_mingw:
+         return {
+             'prefix': 'nt',
+             'home': 'posix_home',
+@@ -467,7 +467,7 @@ def parse_config_h(fp, vars=None):
+ def get_config_h_filename():
+     """Return the path of pyconfig.h."""
+     if _PYTHON_BUILD:
+-        if os.name == "nt":
++        if os.name == "nt" and not sys._is_mingw:
+             inc_dir = os.path.join(_PROJECT_BASE, 'PC')
+         else:
+             inc_dir = _PROJECT_BASE
+@@ -520,7 +520,7 @@ def _init_config_vars():
+     except AttributeError:
+         abiflags = ''
+ 
+-    if os.name == 'posix':
++    if os.name == 'posix' or sys._is_mingw:
+         _init_posix(_CONFIG_VARS)
+         # If we are cross-compiling, load the prefixes from the Makefile instead.
+         if '_PYTHON_PROJECT_BASE' in os.environ:
+@@ -552,7 +552,7 @@ def _init_config_vars():
+     except AttributeError:
+         _CONFIG_VARS['py_version_nodot_plat'] = ''
+ 
+-    if os.name == 'nt':
++    if os.name == 'nt' and not sys._is_mingw:
+         _init_non_posix(_CONFIG_VARS)
+         _CONFIG_VARS['VPATH'] = sys._vpath
+     if _HAS_USER_BASE:
+@@ -566,7 +566,7 @@ def _init_config_vars():
+ 
+     # Always convert srcdir to an absolute path
+     srcdir = _CONFIG_VARS.get('srcdir', _PROJECT_BASE)
+-    if os.name == 'posix':
++    if os.name == 'posix' or sys._is_mingw:
+         if _PYTHON_BUILD:
+             # If srcdir is a relative path (typically '.' or '..')
+             # then it should be interpreted relative to the directory

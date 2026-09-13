@@ -1,0 +1,30 @@
+# mmapmodule_no_seh_msys.patch
+#
+# Target:  Modules/mmapmodule.c (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0097
+#          "mmapmodule: define DONT_USE_SEH" (ported verbatim)
+#
+# Wall item (anticipated compile wall): upstream's mmap gate
+# (sys/mman.h + sys/stat.h) passes on ucrt64 — mingw-w64 ships an mmap
+# emulation — so mmapmodule.c builds, and its MS_WINDOWS branch uses
+# SEH __try/__except, which GCC does not implement: a hard compile
+# error. DONT_USE_SEH (the logic copied from callproc.c, per the
+# upstream comment MSYS2 cites) selects the guard-free paths on mingw.
+diff --git a/Modules/mmapmodule.c b/Modules/mmapmodule.c
+index f7b8ab3..6cea430 100644
+--- a/Modules/mmapmodule.c
++++ b/Modules/mmapmodule.c
+@@ -62,6 +62,13 @@ my_getallocationgranularity (void)
+ 
+ #endif
+ 
++#if defined(_DEBUG) || defined(__MINGW32__)
++/* Don't use structured exception handling on Windows if this is defined.
++   MingW, AFAIK, doesn't support it.
++*/
++#define DONT_USE_SEH
++#endif
++
+ #ifdef UNIX
+ #include <sys/mman.h>
+ #include <sys/stat.h>

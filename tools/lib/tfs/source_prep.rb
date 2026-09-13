@@ -93,21 +93,33 @@ module Tfs
       tree
     end
 
-    # Per-patch check outcomes against the pristine tree: each selected
-    # patch (or an explicitly given set) is tried with git apply --check
-    # and reported :ok or :failed, without raising. Empty for an
-    # unpatched line — the pristine tree is not re-extracted for nothing.
+    # Per-patch check outcomes: the selected series is applied IN MANIFEST
+    # ORDER against a pristine tree and each patch reported :ok or
+    # :failed, without raising. The series is cumulative (each patch's
+    # context may assume its predecessors — the MSYS2-tracked windows-msys
+    # line is a quilt-style series), so the check applies for real, not
+    # --check: once a patch fails, later patches cannot be checked
+    # meaningfully and are reported failed with a not-checked note. Empty
+    # for an unpatched line — the pristine tree is not re-extracted for
+    # nothing.
     def audit(version_name, outdir, patches: nil)
       patches ||= patched_line?(version_name) ? selected_patches(version_name) : []
       return [] if patches.empty?
 
       tree = pristine_tree(version_name, outdir)
-      patches.map do |patch|
-        applied = apply(tree, patch, version_name, ["--check"])
-        Outcome.new(patch: patch, status: applied ? :ok : :failed, detail: nil)
+      outcomes = []
+      patches.each_with_index do |patch, index|
+        apply(tree, patch, version_name, [])
+        outcomes << Outcome.new(patch: patch, status: :ok, detail: nil)
       rescue ApplyError => e
-        Outcome.new(patch: patch, status: :failed, detail: e.message)
+        outcomes << Outcome.new(patch: patch, status: :failed, detail: e.message)
+        patches[(index + 1)..].each do |later|
+          outcomes << Outcome.new(patch: later, status: :failed,
+                                  detail: "not checked: the series broke at #{patch.name}")
+        end
+        break
       end
+      outcomes
     end
 
     # Downloads a tarball URL into the cache (no-op when already cached)

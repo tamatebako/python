@@ -1,0 +1,65 @@
+# configure_exeext_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0063
+#          "configure: set BUILDEXEEXT and EXEEXT" (ported verbatim;
+#          configure regenerated with the pinned autoconf 2.72)
+#
+# Determinism, not a compile wall: upstream leaves EXEEXT empty for
+# non-wasm autotools hosts and derives BUILDEXEEXT from a
+# case-insensitive-build-directory PROBE — the exe spelling then depends
+# on the runner filesystem's case sensitivity (a case-sensitive windows
+# mount flips it). The runtime factory reads BUILDEXE off the generated
+# Makefile (PythonBuild#exe_path); the patch pins EXEEXT=.exe and
+# BUILDEXEEXT=.exe for MINGW so the artifact name is probe-independent.
+diff --git a/configure b/configure
+index a621d6a..efadbf5 100755
+--- a/configure
++++ b/configure
+@@ -7510,6 +7510,8 @@ else case e in #(
+     EXEEXT=.mjs ;; #(
+   WASI) :
+     EXEEXT=.wasm ;; #(
++  MINGW*) :
++    EXEEXT=.exe ;; #(
+   *) :
+     EXEEXT=
+    ;;
+@@ -7545,6 +7547,14 @@ printf "%s\n" "no" >&6; }
+ fi
+ rmdir CaseSensitiveTestDir
+ 
++case $ac_sys_system in #(
++  MINGW) :
++    BUILDEXEEXT=".exe"
++ ;; #(
++  *) :
++     ;;
++esac
++
+ case $ac_sys_system in
+ hp*|HP*)
+     case $ac_cv_cc_name in
+diff --git a/configure.ac b/configure.ac
+index 19907c4..43c1417 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1391,6 +1391,7 @@ AC_ARG_WITH([suffix],
+   AS_CASE([$ac_sys_system],
+     [Emscripten], [EXEEXT=.mjs],
+     [WASI], [EXEEXT=.wasm],
++    [MINGW*], [EXEEXT=.exe],
+     [EXEEXT=]
+   )
+ ])
+@@ -1417,6 +1418,10 @@ else
+ fi
+ rmdir CaseSensitiveTestDir
+ 
++AS_CASE([$ac_sys_system],
++  [MINGW], [BUILDEXEEXT=".exe"]
++)
++
+ case $ac_sys_system in
+ hp*|HP*)
+     case $ac_cv_cc_name in

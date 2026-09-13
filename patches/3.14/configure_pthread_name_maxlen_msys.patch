@@ -1,0 +1,37 @@
+# configure_pthread_name_maxlen_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0100
+#          "configure: define _PYTHREAD_NAME_MAXLEN for MINGW" (ported
+#          verbatim; configure regenerated with the pinned autoconf 2.72)
+#
+# Wall item (anticipated compile wall): Modules/_threadmodule.c's
+# Windows branch (compiled once MS_WINDOWS is defined — our
+# pyport_ms_windows_msys) uses _PYTHREAD_NAME_MAXLEN UNGUARDED in
+# thread_setname; upstream defines it only in PC/pyconfig.h (MSVC), so
+# the autotools mingw build dies on the undeclared identifier. The patch
+# sets the MSVC value (32766) for MINGW hosts.
+diff --git a/configure b/configure
+index 6dac703..1b8d088 100755
+--- a/configure
++++ b/configure
+@@ -32285,6 +32285,7 @@ case "$ac_sys_system" in
+   iOS) _PYTHREAD_NAME_MAXLEN=63;;
+   FreeBSD*) _PYTHREAD_NAME_MAXLEN=19;; # gh-131268
+   OpenBSD*) _PYTHREAD_NAME_MAXLEN=23;; # gh-131268
++  MINGW*) _PYTHREAD_NAME_MAXLEN=32766;;
+   *) _PYTHREAD_NAME_MAXLEN=;;
+ esac
+ if test -n "$_PYTHREAD_NAME_MAXLEN"; then
+diff --git a/configure.ac b/configure.ac
+index d47bcda..2f834f0 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -8067,6 +8067,7 @@ case "$ac_sys_system" in
+   iOS) _PYTHREAD_NAME_MAXLEN=63;;
+   FreeBSD*) _PYTHREAD_NAME_MAXLEN=19;; # gh-131268
+   OpenBSD*) _PYTHREAD_NAME_MAXLEN=23;; # gh-131268
++  MINGW*) _PYTHREAD_NAME_MAXLEN=32766;;
+   *) _PYTHREAD_NAME_MAXLEN=;;
+ esac
+ if test -n "$_PYTHREAD_NAME_MAXLEN"; then

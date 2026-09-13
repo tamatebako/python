@@ -20,10 +20,43 @@
 #                          #16, run 34692047817: the POSIX compile line
 #                          carries no -I$(srcdir)/PC until
 #                          configure_pc_include_msys)
-# plus any .c target the scenario's patch set names (none today: the
-# series touches configure.ac/configure/headers — compiling the wall TUs
-# is what proves the header/configure patches). No link, no exts, no
-# install: the full runtime build stays the runtime factory's job
+# plus the PR #16 round-2 walls (run 34725669811) and the MSYS2-sweep
+# modules whose patches this series carries (v0.3.2):
+#   Python/sysmodule.o       — died on VPATH undeclared (MS_WINDOWS
+#                              branch; fixed by sysmodule_vpath_msys)
+#   Python/thread.o          — died in thread_pthread.h (native_id,
+#                              pause; fixed by configure_nt_threads_msys)
+#   Modules/posixmodule.o    — the nt-module rename (posixmodule_nt_msys);
+#                              died on ioctl/I_PUSH via HAVE_DEV_PTMX under
+#                              the msys shell (configure_mingw_defaults_msys,
+#                              run 34730588522)
+#   Modules/signalmodule.o   — the MS_WINDOWS WSAGetLastError branch
+#                              (signal_ws2_32_msys covers the link side);
+#                              died on implicit alarm() via HAVE_ALARM
+#                              (configure_mingw_defaults_msys, same run)
+#   Modules/timemodule.o     — ucrt _timezone spellings (timemodule_msys)
+#   Modules/socketmodule.o   — the mingw header gate (socketmodule_msys)
+#   Modules/_threadmodule.o  — _PYTHREAD_NAME_MAXLEN consumer
+#                              (configure_pthread_name_maxlen_msys)
+#   Programs/_bootstrap_python.o — the freeze tool's entry TU (its LINK
+#                              wall is 0056's — the full link stays
+#                              downstream, though the frozen-header regen
+#                              dependency pulls the _freeze_module link
+#                              into this gate: run 34732802820)
+# plus any .c target the scenario's patch set names — with a presence
+# probe: a patch-named stdlib TU compiles only when configure left it a
+# literal rule in the generated Makefile (an n/a module — e.g. _ssl
+# without an openssl dev package in this env — emits NO rule, and
+# make's implicit %.o:%.c fallback would otherwise compile it with the
+# wrong flags). Skips are reported in the OK line. WALL_OBJECTS never
+# probe: a missing rule there IS the regression. One TU joins
+# conditionally: Modules/_io/winconsoleio.o exists only in the patched
+# tree (io_winconsoleio_msys, MSYS2 0037 — 0002's HAVE_WINDOWS_CONSOLE_IO
+# arm makes it load-bearing; run 34732802820's _freeze_module link died
+# on _get_console_type / _PyIO_get_console_type / winconsoleio_spec), so
+# it is wall-listed on windows-msys only — the pristine POSIX tree has
+# no rule for it and must not fail on its absence. No exts, no install:
+# the full runtime build stays the runtime factory's job
 # (TODO.python/05 item 2).
 #
 # Coverage contract (the v0.3.0 gate-gap lesson): the smoke IS the
@@ -51,7 +84,16 @@ require "fileutils"
 require "open3"
 require "optparse"
 
-WALL_OBJECTS = %w[Python/pylifecycle.o Python/pytime.o Programs/python.o Objects/exceptions.o].freeze
+WALL_OBJECTS = %w[Python/pylifecycle.o Python/pytime.o Programs/python.o Objects/exceptions.o
+                  Python/sysmodule.o Python/thread.o
+                  Modules/posixmodule.o Modules/signalmodule.o Modules/timemodule.o
+                  Modules/socketmodule.o Modules/_threadmodule.o Programs/_bootstrap_python.o].freeze
+
+# Scenario-only wall TUs: io_winconsoleio_msys (MSYS2 0037) adds
+# winconsoleio.c to the _io bootstrap line — the TU has no make rule in
+# the pristine POSIX tree, so it can join the never-probed wall set only
+# on the platform whose patch set creates it.
+WALL_OBJECTS_MSYS = %w[Modules/_io/winconsoleio.o].freeze
 
 PLATFORM_CONFIG = {
   "windows-msys" => { "env" => {}, "configure" => ["--disable-shared"] },
@@ -87,9 +129,9 @@ cache_dir = ENV.fetch("TFS_CACHE_DIR", Tfs::SourcePrep::DEFAULT_CACHE_DIR)
 
 selection = Tfs::PatchSelection.new
 patches = selection.for(version, platform: platform)
-objects = (WALL_OBJECTS + patches.map(&:target_file)
-                                 .select { |target| target.end_with?(".c") }
-                                 .map { |target| target.sub(/\.c\z/, ".o") }).uniq
+auto_objects = patches.map(&:target_file)
+                      .select { |target| target.end_with?(".c") }
+                      .map { |target| target.sub(/\.c\z/, ".o") }
 
 FileUtils.mkdir_p(outdir)
 prep = Tfs::SourcePrep.new(versions: Tfs::Versions.new,
@@ -104,6 +146,19 @@ unless status.success?
   abort "tools/compile_smoke: configure failed for #{version} (#{platform})\n#{tail}"
 end
 
+# A patch-named stdlib TU is buildable here only when configure left it a
+# literal rule (an n/a module emits none — e.g. _ssl with no openssl dev
+# package in this env — and make's implicit %.o:%.c fallback would
+# compile it with the wrong flags). WALL_OBJECTS (and the platform's
+# scenario-only additions) are never probed: a missing rule there is the
+# regression the gate exists to catch.
+makefile = File.read(File.join(src, "Makefile"))
+wall_objects = WALL_OBJECTS + (platform == "windows-msys" ? WALL_OBJECTS_MSYS : [])
+buildable, skipped = (auto_objects - wall_objects).uniq.partition do |object|
+  makefile.match?(/^#{Regexp.escape(object)}:/)
+end
+objects = wall_objects + buildable
+
 failing_output = []
 failed = objects.reject do |object|
   out, err, status = Open3.capture3("make", "-j2", object, chdir: src)
@@ -112,4 +167,5 @@ failed = objects.reject do |object|
 end
 abort "tools/compile_smoke: FAIL #{version} (#{platform}): #{failed.join(', ')} did not compile\n#{failing_output.join}" unless failed.empty?
 
-puts "OK #{version} (#{platform}): configure green, #{objects.size} wall translation units compile (#{objects.join(', ')})"
+note = skipped.empty? ? "" : " (n/a in this env, skipped: #{skipped.join(', ')})"
+puts "OK #{version} (#{platform}): configure green, #{objects.size} translation units compile (#{objects.join(', ')})#{note}"

@@ -1,0 +1,258 @@
+# socketmodule_msys.patch
+#
+# Target:  Modules/socketmodule.c, Modules/socketmodule.h,
+#          configure.ac + the generated configure, pyconfig.h.in
+#          (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0017
+#          "socketmodule: add MINGW support" (ported verbatim; configure
+#          regenerated with the pinned autoconf 2.72)
+#
+# Wall item (enablement wall, same leg class as run 34725669811):
+# upstream's autoconf _socket gate requires sys/socket.h + netinet/in.h,
+# which mingw-w64 does not ship — the module is simply never built, and a
+# runtime without _socket has no socket/ssl (the pinned static _ssl is
+# dead weight). The patch widens the gate with -o MACHDEP=win32, probes
+# addrinfo/sockaddr_storage/socklen_t through ws2tcpip.h, sets
+# SOCKET_LIBS=-lws2_32 -liphlpapi -lrpcrt4 (the static exe's link needs
+# them), guards the IPPROTO_* re-#defines to _MSC_VER (mingw's ws2tcpip.h
+# already provides the enum), and lets configure — not socketmodule.h —
+# decide HAVE_ADDRINFO/HAVE_SOCKADDR_STORAGE on mingw. socketmodule.c's
+# own MS_WINDOWS branches then compile the MSVC-proven winsock2 code
+# paths.
+diff --git a/Modules/socketmodule.c b/Modules/socketmodule.c
+index f297a5f..ac2a876 100644
+--- a/Modules/socketmodule.c
++++ b/Modules/socketmodule.c
+@@ -289,6 +289,7 @@ shutdown(how) -- shut down traffic in one or both directions\n\
+ # include <Rpc.h>
+ 
+ /* Macros based on the IPPROTO enum, see: https://bugs.python.org/issue29515 */
++#ifdef _MSC_VER
+ #define IPPROTO_ICMP IPPROTO_ICMP
+ #define IPPROTO_IGMP IPPROTO_IGMP
+ #define IPPROTO_GGP IPPROTO_GGP
+@@ -319,6 +320,7 @@ shutdown(how) -- shut down traffic in one or both directions\n\
+ #define IPPROTO_PGM IPPROTO_PGM  // WinSock2 only
+ #define IPPROTO_L2TP IPPROTO_L2TP  // WinSock2 only
+ #define IPPROTO_SCTP IPPROTO_SCTP  // WinSock2 only
++#endif /* _MSC_VER */
+ 
+ /* Provides the IsWindows7SP1OrGreater() function */
+ #include <versionhelpers.h>
+@@ -417,7 +419,7 @@ remove_unusable_flags(PyObject *m)
+    * _SS_ALIGNSIZE is defined in sys/socket.h by 6.5.21,
+    * for example, but not by 6.5.10.
+    */
+-#elif defined(_MSC_VER) && _MSC_VER>1201
++#elif (defined(_MSC_VER) && _MSC_VER>1201) || defined(__MINGW32__)
+   /* Do not include addrinfo.h for MSVC7 or greater. 'addrinfo' and
+    * EAI_* constants are defined in (the already included) ws2tcpip.h.
+    */
+diff --git a/Modules/socketmodule.h b/Modules/socketmodule.h
+index 6f8f4b2..3234843 100644
+--- a/Modules/socketmodule.h
++++ b/Modules/socketmodule.h
+@@ -75,8 +75,10 @@ struct SOCKADDR_BTH_REDEF {
+  */
+ # ifdef SIO_GET_MULTICAST_FILTER
+ #  include <mstcpip.h> /* for SIO_RCVALL */
++#ifndef __MINGW32__ /* resolve by configure */
+ #  define HAVE_ADDRINFO
+ #  define HAVE_SOCKADDR_STORAGE
++#endif
+ #  define HAVE_GETADDRINFO
+ #  define HAVE_GETNAMEINFO
+ #  define ENABLE_IPV6
+diff --git a/configure b/configure
+index 423b21b..0c49e64 100755
+--- a/configure
++++ b/configure
+@@ -16616,6 +16616,14 @@ fi
+ 
+ 
+ 
++case $MACHDEP in #(
++  win32) :
++    SOCKET_LIBS="-lws2_32 -liphlpapi -lrpcrt4" ;; #(
++  *) :
++    SOCKET_LIBS=""
++ ;;
++esac
++
+ 
+ 
+ 
+@@ -25773,6 +25781,13 @@ printf "%s\n" "#define HAVE_ALTZONE 1" >>confdefs.h
+ 
+ fi
+ 
++ac_fn_c_check_header_compile "$LINENO" "ws2tcpip.h" "ac_cv_header_ws2tcpip_h" "$ac_includes_default"
++if test "x$ac_cv_header_ws2tcpip_h" = xyes
++then :
++  printf "%s\n" "#define HAVE_WS2TCPIP_H 1" >>confdefs.h
++
++fi
++
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for addrinfo" >&5
+ printf %s "checking for addrinfo... " >&6; }
+ if test ${ac_cv_struct_addrinfo+y}
+@@ -25781,7 +25796,12 @@ then :
+ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+-#include <netdb.h>
++
++#ifdef HAVE_WS2TCPIP_H
++#  include <ws2tcpip.h>
++#else
++#  include <netdb.h>
++#endif
+ int
+ main (void)
+ {
+@@ -25817,8 +25837,15 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
+-#		include <sys/types.h>
+-#		include <sys/socket.h>
++#ifdef HAVE_WS2TCPIP_H
++#include <ws2tcpip.h>
++#endif
++#ifdef HAVE_SYS_TYPES_H
++#include <sys/types.h>
++#endif
++#ifdef HAVE_SYS_SOCKET_H
++#include <sys/socket.h>
++#endif
+ int
+ main (void)
+ {
+@@ -30629,6 +30656,9 @@ then
+ fi
+ 
+ ac_fn_c_check_type "$LINENO" "socklen_t" "ac_cv_type_socklen_t" "
++#ifdef HAVE_WS2TCPIP_H
++#include <ws2tcpip.h>
++#endif
+ #ifdef HAVE_SYS_TYPES_H
+ #include <sys/types.h>
+ #endif
+@@ -32970,7 +33000,7 @@ then :
+ 
+     if true
+ then :
+-  if test "$ac_cv_header_sys_socket_h" = "yes"                     -a "$ac_cv_header_sys_types_h" = "yes"                     -a "$ac_cv_header_netinet_in_h" = "yes"
++  if test "$ac_cv_header_sys_socket_h" = "yes"                     -a "$ac_cv_header_sys_types_h" = "yes"                     -a "$ac_cv_header_netinet_in_h" = "yes"                     -o "$MACHDEP" = "win32"
+ then :
+   py_cv_module__socket=yes
+ else case e in #(
+diff --git a/configure.ac b/configure.ac
+index 2def216..3f367cc 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -4504,6 +4504,12 @@ AC_SUBST([LIBMPDEC_CFLAGS])
+ AC_SUBST([LIBMPDEC_INTERNAL])
+ 
+ 
++dnl On MINGW, you need to link against ws2_32 and iphlpapi for sockets to work
++AS_CASE([$MACHDEP],
++  [win32], [SOCKET_LIBS="-lws2_32 -liphlpapi -lrpcrt4"],
++  [SOCKET_LIBS=""]
++)
++
+ dnl detect sqlite3 from Emscripten emport
+ PY_CHECK_EMSCRIPTEN_PORT([LIBSQLITE3], [-sUSE_SQLITE3])
+ 
+@@ -6048,18 +6054,33 @@ if test $ac_cv_header_time_altzone = yes; then
+     [Define this if your time.h defines altzone.])
+ fi
+ 
++AC_CHECK_HEADERS([ws2tcpip.h])
+ AC_CACHE_CHECK([for addrinfo], [ac_cv_struct_addrinfo],
+-AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[@%:@include <netdb.h>]], [[struct addrinfo a]])],
++AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
++#ifdef HAVE_WS2TCPIP_H
++#  include <ws2tcpip.h>
++#else
++#  include <netdb.h>
++#endif]],
++    [[struct addrinfo a]])],
+   [ac_cv_struct_addrinfo=yes],
+   [ac_cv_struct_addrinfo=no]))
+ if test $ac_cv_struct_addrinfo = yes; then
+-	AC_DEFINE([HAVE_ADDRINFO], [1], [struct addrinfo (netdb.h)])
++	AC_DEFINE([HAVE_ADDRINFO], [1], [struct addrinfo])
+ fi
+ 
+ AC_CACHE_CHECK([for sockaddr_storage], [ac_cv_struct_sockaddr_storage],
+ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+-#		include <sys/types.h>
+-@%:@		include <sys/socket.h>]], [[struct sockaddr_storage s]])],
++#ifdef HAVE_WS2TCPIP_H
++#include <ws2tcpip.h>
++#endif
++#ifdef HAVE_SYS_TYPES_H
++#include <sys/types.h>
++#endif
++#ifdef HAVE_SYS_SOCKET_H
++#include <sys/socket.h>
++#endif]],
++    [[struct sockaddr_storage s]])],
+   [ac_cv_struct_sockaddr_storage=yes],
+   [ac_cv_struct_sockaddr_storage=no]))
+ if test $ac_cv_struct_sockaddr_storage = yes; then
+@@ -7316,7 +7337,10 @@ fi
+ 
+ AC_CHECK_TYPES([socklen_t], [],
+                [AC_DEFINE([socklen_t], [int],
+-                          [Define to 'int' if <sys/socket.h> does not define.])], [
++                          [Define to `int' if <sys/socket.h> or <ws2tcpip.h> does not define.])], [
++#ifdef HAVE_WS2TCPIP_H
++#include <ws2tcpip.h>
++#endif
+ #ifdef HAVE_SYS_TYPES_H
+ #include <sys/types.h>
+ #endif
+@@ -8255,7 +8279,8 @@ PY_STDLIB_MOD([mmap],
+ PY_STDLIB_MOD([_socket],
+   [], m4_flatten([test "$ac_cv_header_sys_socket_h" = "yes"
+                     -a "$ac_cv_header_sys_types_h" = "yes"
+-                    -a "$ac_cv_header_netinet_in_h" = "yes"]), [], [$SOCKET_LIBS])
++                    -a "$ac_cv_header_netinet_in_h" = "yes"
++                    -o "$MACHDEP" = "win32"]), [], [$SOCKET_LIBS])
+ 
+ dnl platform specific extensions
+ PY_STDLIB_MOD([grp], [],
+diff --git a/pyconfig.h.in b/pyconfig.h.in
+index 1a6c1a3..33b4308 100644
+--- a/pyconfig.h.in
++++ b/pyconfig.h.in
+@@ -59,7 +59,7 @@
+ /* Define to 1 if you have the 'acosh' function. */
+ #undef HAVE_ACOSH
+ 
+-/* struct addrinfo (netdb.h) */
++/* struct addrinfo */
+ #undef HAVE_ADDRINFO
+ 
+ /* Define to 1 if you have the 'alarm' function. */
+@@ -1667,6 +1667,9 @@
+ /* Define to 1 if you have the 'writev' function. */
+ #undef HAVE_WRITEV
+ 
++/* Define to 1 if you have the <ws2tcpip.h> header file. */
++#undef HAVE_WS2TCPIP_H
++
+ /* Define to 1 if you have the <zdict.h> header file. */
+ #undef HAVE_ZDICT_H
+ 
+@@ -2104,7 +2107,7 @@
+ /* Define as 'unsigned int' if <stddef.h> doesn't define. */
+ #undef size_t
+ 
+-/* Define to 'int' if <sys/socket.h> does not define. */
++/* Define to `int' if <sys/socket.h> or <ws2tcpip.h> does not define. */
+ #undef socklen_t
+ 
+ /* Define as 'int' if <sys/types.h> doesn't define. */

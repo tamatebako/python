@@ -1,0 +1,28 @@
+# sysmodule_vpath_msys.patch
+#
+# Target:  Makefile.pre.in (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0054
+#          "build: def VPATH when compiling Python/sysmodule.c" (ported
+#          verbatim)
+#
+# Wall item (tebako-runtime-python PR #16, run 34725669811):
+# Python/sysmodule.c:3924: 'VPATH' undeclared at
+# SET_SYS_FROM_STRING("_vpath", VPATH). Upstream guards the use with
+# MS_WINDOWS — live only once pyport_ms_windows_msys defines it — and
+# gets VPATH from PC/pyconfig.h (MSVC-only); the autotools compile line
+# for sysmodule.o carried -DABIFLAGS and $(MULTIARCH_CPPFLAGS) only. The
+# patch passes -DVPATH='"$(VPATH)"' on the sysmodule.o rule (VPATH is
+# @srcdir@-substituted; in-tree it is ".", matching the build shape the
+# factory drives).
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index b3f3eee..a4c738b 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -1973,6 +1973,7 @@ Python/dynload_hpux.o: $(srcdir)/Python/dynload_hpux.c Makefile
+ Python/sysmodule.o: $(srcdir)/Python/sysmodule.c Makefile $(srcdir)/Include/pydtrace.h
+ 	$(CC) -c $(PY_CORE_CFLAGS) \
+ 		-DABIFLAGS='"$(ABIFLAGS)"' \
++		-DVPATH='"$(VPATH)"' \
+ 		$(MULTIARCH_CPPFLAGS) \
+ 		-o $@ $(srcdir)/Python/sysmodule.c
+ 

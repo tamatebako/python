@@ -7,6 +7,15 @@
 # pristine upstream tarball. The wall evidence and per-patch rationale are
 # in each patch file's header comment.
 #
+# Apply order follows the MSYS2 MINGW-packages numbering (the proven
+# out-of-tree port this series tracks): each patch's context assumes the
+# preceding ones. The one exception is the closing entry:
+# configure_syslibs_msys is a tebako deviation with no MSYS2 number
+# (rationale in its header), appended last. v0.3.2 extends the set past
+# the PR #16 walls (sysmodule VPATH, thread_pthread) with the sweep of
+# the full MSYS2 series for our build shape — the ported set and the
+# deliberate skips are recorded in the PR body.
+#
 # NEVER a jit variant on this platform: CPython's experimental JIT target
 # whitelist (PEP 774's tiering, Tools/jit/_targets.py per PEP 836's
 # build-story wording) admits only Tier-1 MSVC windows — a mingw/ucrt64
@@ -15,13 +24,51 @@
 ---
 version: "3.14"
 patches:
+  - feature: configure_nt_threads_msys
+    file: configure_nt_threads_msys.patch
   - feature: pyport_ms_windows_msys
     file: pyport_ms_windows_msys.patch
   - feature: configure_machdep_msys
     file: configure_machdep_msys.patch
+  - feature: configure_mingw_defaults_msys
+    file: configure_mingw_defaults_msys.patch
   - feature: configure_pc_include_msys
     file: configure_pc_include_msys.patch
+  - feature: posixmodule_nt_msys
+    file: posixmodule_nt_msys.patch
+  - feature: frozenmain_drop_msys
+    file: frozenmain_drop_msys.patch
+  - feature: socketmodule_msys
+    file: socketmodule_msys.patch
+  - feature: signal_ws2_32_msys
+    file: signal_ws2_32_msys.patch
+  - feature: io_winconsoleio_msys
+    file: io_winconsoleio_msys.patch
+  - feature: configure_inet_pton_msys
+    file: configure_inet_pton_msys.patch
+  - feature: timemodule_msys
+    file: timemodule_msys.patch
   - feature: configure_c_locale_coercion_msys
     file: configure_c_locale_coercion_msys.patch
+  - feature: sysmodule_vpath_msys
+    file: sysmodule_vpath_msys.patch
+  - feature: bootstrap_python_link_flags_msys
+    file: bootstrap_python_link_flags_msys.patch
+  - feature: ssl_module_msys
+    file: ssl_module_msys.patch
+  - feature: configure_winsock_netdb_msys
+    file: configure_winsock_netdb_msys.patch
+  - feature: configure_exeext_msys
+    file: configure_exeext_msys.patch
+  - feature: configure_disable_posix_modules_msys
+    file: configure_disable_posix_modules_msys.patch
+  - feature: configure_noerror_incompat_ptr_msys
+    file: configure_noerror_incompat_ptr_msys.patch
   - feature: pycore_time_timeval_msys
     file: pycore_time_timeval_msys.patch
+  - feature: mmapmodule_no_seh_msys
+    file: mmapmodule_no_seh_msys.patch
+  - feature: configure_pthread_name_maxlen_msys
+    file: configure_pthread_name_maxlen_msys.patch
+  - feature: configure_syslibs_msys
+    file: configure_syslibs_msys.patch

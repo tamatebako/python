@@ -3,10 +3,11 @@
 # Target:  configure.ac + the generated configure (windows-msys scenario)
 # Source:  MSYS2 MINGW-packages mingw-w64-python 0004
 #          "configure: add MACHDEP and platform on MINGW" (configure.ac
-#          hunks ported verbatim; the generated-configure hunks are the
-#          hand-synced equivalents — MSYS2 regenerates with autoreconf,
-#          this factory ships a configure-ready tarball so consumers never
-#          need autoconf)
+#          hunks ported verbatim; the generated-configure hunks are
+#          REGENERATED with the upstream-pinned autoconf 2.72 —
+#          byte-identical regen against the pristine 3.14.7 configure
+#          proven, so no hand-sync drift is possible; this factory ships
+#          a configure-ready tarball so consumers never need autoconf)
 #
 # Wall item (tebako-runtime-python PR #2, round 5): configure.ac carries
 # ZERO mingw cases. Without them a ucrt64 configure completes but leaves
@@ -18,8 +19,40 @@
 #   *-*-mingw*  → _host_cpu=            (cross-compile allow-list: no
 #                                        _host_ident suffix on mingw)
 
+diff --git a/configure b/configure
+index badddc9..e5329ce 100755
+--- a/configure
++++ b/configure
+@@ -4118,6 +4118,9 @@ then
+ 	*-*-cygwin*)
+ 		ac_sys_system=Cygwin
+ 		;;
++	*-*-mingw*)
++		ac_sys_system=MINGW
++		;;
+ 	*-apple-ios*)
+ 		ac_sys_system=iOS
+ 		;;
+@@ -4161,6 +4164,7 @@ then
+ 	linux*) MACHDEP="linux";;
+ 	cygwin*) MACHDEP="cygwin";;
+ 	darwin*) MACHDEP="darwin";;
++	mingw*) MACHDEP="win32";;
+ 	'')	MACHDEP="unknown";;
+     esac
+ 
+@@ -4637,6 +4641,9 @@ printf "%s\n" "$IPHONEOS_DEPLOYMENT_TARGET" >&6; }
+ 	wasm32-*-* | wasm64-*-*)
+ 		_host_ident=$host_cpu
+ 		;;
++	*-*-mingw*)
++		_host_cpu=
++		;;
+ 	*)
+ 		# for now, limit cross builds to known configurations
+ 		MACHDEP="unknown"
 diff --git a/configure.ac b/configure.ac
-index 967d34d..2d24cea 100644
+index b320f92..10a1152 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -327,6 +327,9 @@ then
@@ -41,38 +74,6 @@ index 967d34d..2d24cea 100644
      esac
  
 @@ -812,6 +816,9 @@ if test "$cross_compiling" = yes; then
- 	wasm32-*-* | wasm64-*-*)
- 		_host_ident=$host_cpu
- 		;;
-+	*-*-mingw*)
-+		_host_cpu=
-+		;;
- 	*)
- 		# for now, limit cross builds to known configurations
- 		MACHDEP="unknown"
-diff --git a/configure b/configure
-index 2cb22a7..03a84d2 100755
---- a/configure
-+++ b/configure
-@@ -4115,6 +4115,9 @@ then
- 	*-*-cygwin*)
- 		ac_sys_system=Cygwin
- 		;;
-+	*-*-mingw*)
-+		ac_sys_system=MINGW
-+		;;
- 	*-apple-ios*)
- 		ac_sys_system=iOS
- 		;;
-@@ -4158,6 +4161,7 @@ then
- 	linux*) MACHDEP="linux";;
- 	cygwin*) MACHDEP="cygwin";;
- 	darwin*) MACHDEP="darwin";;
-+	mingw*) MACHDEP="win32";;
- 	'')	MACHDEP="unknown";;
-     esac
- 
-@@ -4634,6 +4638,9 @@ printf "%s\n" "$IPHONEOS_DEPLOYMENT_TARGET" >&6; }
  	wasm32-*-* | wasm64-*-*)
  		_host_ident=$host_cpu
  		;;

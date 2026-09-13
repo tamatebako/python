@@ -4,9 +4,10 @@
 # Source:  MSYS2 MINGW-packages mingw-w64-python 0007
 #          "build: Add PC/ to CPPFLAGS and to SRCDIRS on Mingw"
 #          (configure.ac hunks ported verbatim; the generated-configure
-#          hunks are the hand-synced equivalents — autoreconf strips the
-#          dnl comments; this factory ships a configure-ready tarball so
-#          consumers never need autoconf)
+#          hunks are REGENERATED with the upstream-pinned autoconf 2.72 —
+#          byte-identical regen against the pristine 3.14.7 configure
+#          proven, so no hand-sync drift is possible; this factory ships
+#          a configure-ready tarball so consumers never need autoconf)
 #
 # Wall item (tebako-runtime-python PR #16 windows leg — run 34692047817,
 # job 103631971290): Objects/exceptions.c:1976:10: fatal error: errmap.h:
@@ -26,23 +27,23 @@
 # -I is shape-independent, so in-tree and VPATH builds resolve alike).
 
 diff --git a/configure b/configure
-index c176feb..3b1e3dd 100755
+index 4b76562..605a643 100755
 --- a/configure
 +++ b/configure
-@@ -30432,6 +30432,12 @@ do
+@@ -30842,6 +30842,12 @@ do
    THREADHEADERS="$THREADHEADERS \$(srcdir)/$h"
  done
  
 +case $host in
 +  *-*-mingw*)
-+    CPPFLAGS="-I\$(srcdir)/PC $CPPFLAGS"
++                    CPPFLAGS="-I\$(srcdir)/PC $CPPFLAGS"
 +    ;;
 +esac
 +
  
  SRCDIRS="\
    Modules \
-@@ -30459,6 +30465,11 @@ SRCDIRS="\
+@@ -30869,6 +30875,11 @@ SRCDIRS="\
    Programs \
    Python \
    Python/frozen_modules"
@@ -55,10 +56,10 @@ index c176feb..3b1e3dd 100755
  printf %s "checking for build directories... " >&6; }
  for dir in $SRCDIRS; do
 diff --git a/configure.ac b/configure.ac
-index 9f168ee..400b016 100644
+index 1aea917..ff1df7e 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -7330,6 +7330,16 @@ do
+@@ -7445,6 +7445,16 @@ do
    THREADHEADERS="$THREADHEADERS \$(srcdir)/$h"
  done
  
@@ -75,7 +76,7 @@ index 9f168ee..400b016 100644
  AC_SUBST([SRCDIRS])
  SRCDIRS="\
    Modules \
-@@ -7357,6 +7367,11 @@ SRCDIRS="\
+@@ -7472,6 +7482,11 @@ SRCDIRS="\
    Programs \
    Python \
    Python/frozen_modules"

@@ -1,0 +1,129 @@
+# io_winconsoleio_msys.patch
+#
+# Target:  Modules/Setup.bootstrap.in + Modules/Setup.stdlib.in +
+#          configure.ac + the generated configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0037
+#          "build: build winconsoleio and _testconsole" (ported verbatim)
+#
+# Wall item (observed link wall, run 34732802820): upstream's autotools
+# build never compiles Modules/_io/winconsoleio.c (the MSVC vcxproj
+# carries it instead), so once pyport_ms_windows_msys (MSYS2 0002)
+# defines HAVE_WINDOWS_CONSOLE_IO on mingw, the _freeze_module / exe
+# links die on the console symbols the MS_WINDOWS code paths reference:
+# _get_console_type (Parser/myreadline.c:273/:276), _PyIO_get_console_type
+# and winconsoleio_spec (Modules/_io/_iomodule.c:324/:584). The patch
+# appends _io/winconsoleio.c to the _io bootstrap line — the file's whole
+# body is #ifdef HAVE_WINDOWS_CONSOLE_IO, so POSIX builds gain an empty
+# object — and registers the _testconsole stdlib module on win32
+# (test-only; rides along verbatim). The generated configure is
+# REGENERATED with the upstream-pinned autoconf 2.72 (byte-identical
+# regen against pristine proven, no hand-sync; pyconfig.h.in is
+# untouched: no AC_DEFINE involved).
+diff --git a/Modules/Setup.bootstrap.in b/Modules/Setup.bootstrap.in
+index b835d80..7ded797 100644
+--- a/Modules/Setup.bootstrap.in
++++ b/Modules/Setup.bootstrap.in
+@@ -19,7 +19,7 @@ _datetime _datetimemodule.c
+ _codecs _codecsmodule.c
+ _collections _collectionsmodule.c
+ errno errnomodule.c
+-_io _io/_iomodule.c _io/iobase.c _io/fileio.c _io/bytesio.c _io/bufferedio.c _io/textio.c _io/stringio.c
++_io _io/_iomodule.c _io/iobase.c _io/fileio.c _io/bytesio.c _io/bufferedio.c _io/textio.c _io/stringio.c _io/winconsoleio.c
+ itertools itertoolsmodule.c
+ _sre _sre/sre.c
+ _sysconfig _sysconfig.c
+diff --git a/Modules/Setup.stdlib.in b/Modules/Setup.stdlib.in
+index 0f92ef4..d686a83 100644
+--- a/Modules/Setup.stdlib.in
++++ b/Modules/Setup.stdlib.in
+@@ -186,6 +186,7 @@
+ @MODULE__TESTMULTIPHASE_TRUE@_testmultiphase _testmultiphase.c
+ @MODULE__TESTSINGLEPHASE_TRUE@_testsinglephase _testsinglephase.c
+ @MODULE__CTYPES_TEST_TRUE@_ctypes_test _ctypes/_ctypes_test.c
++@MODULE__TESTCONSOLE_TRUE@_testconsole ../PC/_testconsole.c
+ 
+ # Limited API template modules; must be built as shared modules.
+ @MODULE_XXLIMITED_TRUE@xxlimited xxlimited.c
+diff --git a/configure b/configure
+index 0c49e64..3675f6c 100755
+--- a/configure
++++ b/configure
+@@ -650,6 +650,8 @@ MODULE_XXLIMITED_FALSE
+ MODULE_XXLIMITED_TRUE
+ MODULE__CTYPES_TEST_FALSE
+ MODULE__CTYPES_TEST_TRUE
++MODULE__TESTCONSOLE_FALSE
++MODULE__TESTCONSOLE_TRUE
+ MODULE__XXTESTFUZZ_FALSE
+ MODULE__XXTESTFUZZ_TRUE
+ MODULE_XXSUBTYPE_FALSE
+@@ -35133,6 +35135,46 @@ fi
+ printf "%s\n" "$py_cv_module__xxtestfuzz" >&6; }
+ 
+ 
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module _testconsole" >&5
++printf %s "checking for stdlib extension module _testconsole... " >&6; }
++        if test "$py_cv_module__testconsole" != "n/a"
++then :
++
++    if test "$TEST_MODULES" = yes -a "$MACHDEP" = "win32"
++then :
++  if true
++then :
++  py_cv_module__testconsole=yes
++else case e in #(
++  e) py_cv_module__testconsole=missing ;;
++esac
++fi
++else case e in #(
++  e) py_cv_module__testconsole=disabled ;;
++esac
++fi
++
++fi
++  as_fn_append MODULE_BLOCK "MODULE__TESTCONSOLE_STATE=$py_cv_module__testconsole$as_nl"
++  if test "x$py_cv_module__testconsole" = xyes
++then :
++
++
++
++
++fi
++   if test "$py_cv_module__testconsole" = yes; then
++  MODULE__TESTCONSOLE_TRUE=
++  MODULE__TESTCONSOLE_FALSE='#'
++else
++  MODULE__TESTCONSOLE_TRUE='#'
++  MODULE__TESTCONSOLE_FALSE=
++fi
++
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module__testconsole" >&5
++printf "%s\n" "$py_cv_module__testconsole" >&6; }
++
++
+   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module _ctypes_test" >&5
+ printf %s "checking for stdlib extension module _ctypes_test... " >&6; }
+         if test "$py_cv_module__ctypes_test" != "n/a"
+@@ -35699,6 +35741,10 @@ if test -z "${MODULE__XXTESTFUZZ_TRUE}" && test -z "${MODULE__XXTESTFUZZ_FALSE}"
+   as_fn_error $? "conditional \"MODULE__XXTESTFUZZ\" was never defined.
+ Usually this means the macro was only invoked conditionally." "$LINENO" 5
+ fi
++if test -z "${MODULE__TESTCONSOLE_TRUE}" && test -z "${MODULE__TESTCONSOLE_FALSE}"; then
++  as_fn_error $? "conditional \"MODULE__TESTCONSOLE\" was never defined.
++Usually this means the macro was only invoked conditionally." "$LINENO" 5
++fi
+ if test -z "${MODULE__CTYPES_TEST_TRUE}" && test -z "${MODULE__CTYPES_TEST_FALSE}"; then
+   as_fn_error $? "conditional \"MODULE__CTYPES_TEST\" was never defined.
+ Usually this means the macro was only invoked conditionally." "$LINENO" 5
+diff --git a/configure.ac b/configure.ac
+index 3f367cc..0d73a2e 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -8532,6 +8532,7 @@ PY_STDLIB_MOD([_testmultiphase], [test "$TEST_MODULES" = yes], [test "$ac_cv_fun
+ PY_STDLIB_MOD([_testsinglephase], [test "$TEST_MODULES" = yes], [test "$ac_cv_func_dlopen" = yes])
+ PY_STDLIB_MOD([xxsubtype], [test "$TEST_MODULES" = yes])
+ PY_STDLIB_MOD([_xxtestfuzz], [test "$TEST_MODULES" = yes])
++PY_STDLIB_MOD([_testconsole], [test "$TEST_MODULES" = yes -a "$MACHDEP" = "win32"])
+ dnl Check have_libffi so _ctypes_test is only built if _ctypes is built.
+ dnl _ctypes_test doesn't use libffi directly.
+ PY_STDLIB_MOD([_ctypes_test],

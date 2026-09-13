@@ -98,8 +98,10 @@ per-version sum is the trust anchor the runtime factory verifies against.
   build/copy plan uses — an `_msys` patch never smokes linux-gnu).
 - `tools/lint <version>` — fetch + verify + extract + tree sanity
   (`configure`, `Makefile.pre.in`, `Modules/getpath.py` — the file the
-  relocatability contract rests on), plus `git apply --check` of every
-  patch the version's line manifest selects.
+  relocatability contract rests on), plus applying every patch the
+  version's line manifest selects, in manifest order, on a pristine tree
+  (the series is cumulative — a patch's context may assume its
+  predecessors).
 - `tools/monitor --detect | --onboard <version>` — the release monitor.
   `Tfs::PythonReleases` parses the official python.org FTP index
   (exact `X.Y.Z` directories only — pre-release suffixes and the two-part
@@ -139,8 +141,8 @@ All matrices and every version/sha flow from versions.yml through the
 tools — the workflows carry no version literals.
 
 - `lint.yml` (push to main + PRs) — validates manifests, then one leg per
-  version running `tools/lint` (tarball + tree sanity + every selected
-  patch `git apply --check`), plus the **compile-smoke legs**
+  version running `tools/lint` (tarball + tree sanity + the selected
+  patch series applied in manifest order), plus the **compile-smoke legs**
   (`tools/versions --smoke` → `_compile-smoke.yml`, one leg per
   patch-carrying scenario on its native runner — the PR-time oracle for
   the windows-msys port, since a local macOS/Linux host cannot run the

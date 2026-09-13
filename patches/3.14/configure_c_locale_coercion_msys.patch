@@ -4,8 +4,10 @@
 # Source:  MSYS2 MINGW-packages mingw-w64-python 0052
 #          "configure: Default to --without-c-locale-coercion on Windows"
 #          (configure.ac hunks ported verbatim; the generated-configure
-#          hunks are the hand-synced equivalents — this factory ships a
-#          configure-ready tarball, no autoreconf downstream)
+#          hunks are REGENERATED with the upstream-pinned autoconf 2.72 —
+#          byte-identical regen against the pristine 3.14.7 configure
+#          proven, so no hand-sync drift is possible; this factory ships
+#          a configure-ready tarball, no autoreconf downstream)
 #
 # Wall item (tebako-runtime-python PR #2, round 5): pylifecycle.c:258's
 # setenv is the first hard stop. --with-c-locale-coercion defaults to yes
@@ -18,16 +20,20 @@
 # compiles out. An explicit --with-c-locale-coercion still forces it on
 # (named opt-in, not a silent removal).
 
-diff --git a/configure.ac b/configure.ac
-index 967d34d..76a7fbb 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -5140,11 +5140,14 @@ AC_MSG_RESULT([$with_pymalloc])
- AC_MSG_CHECKING([for --with-c-locale-coercion])
- AC_ARG_WITH(
-   [c-locale-coercion],
--  [AS_HELP_STRING([--with-c-locale-coercion], [enable C locale coercion to a UTF-8 based locale (default is yes)])])
-+  [AS_HELP_STRING([--with-c-locale-coercion], [enable C locale coercion to a UTF-8 based locale (default is yes on Unix, no on Windows)])])
+diff --git a/configure b/configure
+index 730c719..26e35e9 100755
+--- a/configure
++++ b/configure
+@@ -1934,7 +1934,7 @@ Optional Packages:
+   --with-pymalloc         enable specialized mallocs (default is yes)
+   --with-c-locale-coercion
+                           enable C locale coercion to a UTF-8 based locale
+-                          (default is yes)
++                          (default is yes on Unix, no on Windows)
+   --with-valgrind         enable Valgrind support (default is no)
+   --with-dtrace           enable DTrace support (default is no)
+   --with-libm=STRING      override libm math library to STRING (default is
+@@ -19527,7 +19527,10 @@ fi
  
  if test -z "$with_c_locale_coercion"
  then
@@ -39,20 +45,16 @@ index 967d34d..76a7fbb 100644
  fi
  if test "$with_c_locale_coercion" != "no"
  then
-diff --git a/configure b/configure
-index 2cb22a7..9f5920b 100755
---- a/configure
-+++ b/configure
-@@ -1927,7 +1927,7 @@ Optional Packages:
-   --with-pymalloc         enable specialized mallocs (default is yes)
-   --with-c-locale-coercion
-                           enable C locale coercion to a UTF-8 based locale
--                          (default is yes)
-+                          (default is yes on Unix, no on Windows)
-   --with-valgrind         enable Valgrind support (default is no)
-   --with-dtrace           enable DTrace support (default is no)
-   --with-libm=STRING      override libm math library to STRING (default is
-@@ -19096,7 +19096,10 @@ fi
+diff --git a/configure.ac b/configure.ac
+index e1ae5b8..dd093fa 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5258,11 +5258,14 @@ AC_MSG_RESULT([$with_pymalloc])
+ AC_MSG_CHECKING([for --with-c-locale-coercion])
+ AC_ARG_WITH(
+   [c-locale-coercion],
+-  [AS_HELP_STRING([--with-c-locale-coercion], [enable C locale coercion to a UTF-8 based locale (default is yes)])])
++  [AS_HELP_STRING([--with-c-locale-coercion], [enable C locale coercion to a UTF-8 based locale (default is yes on Unix, no on Windows)])])
  
  if test -z "$with_c_locale_coercion"
  then

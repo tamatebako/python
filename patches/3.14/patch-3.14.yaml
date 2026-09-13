@@ -36,6 +36,16 @@
 # take the posix sysconfig path) riding on 0003's sys._is_mingw flag,
 # which the series previously skipped for lack of a consumer; 0034's
 # hunk 3 returns to its MSYS2-verbatim (0003-carrying) context.
+# v0.3.5 answers v0.3.4's windows CI leg (trp run 34750005177): the
+# shared-extension links die on unresolved winsock/ole symbols — PE
+# resolves every symbol at link time and upstream's PY_STDLIB_MOD
+# stanzas carry no per-module libs (MSVC gets them via PCbuild) —
+# answered by 0061 + 0073 (_multiprocessing: the win32 enable
+# condition, then -lws2_32), 0074 (select: _MSC_VER → MS_WIN32 guards
+# + -lws2_32), and 0076 (_ctypes: -lole32 -loleaut32 -luuid, the next
+# wall pre-empted — _ctypes rides SHAREDMODS on the libffi-carrying
+# runner and nothing in the series gates it); 0076's hunk-3 context is
+# re-authored for 3.14.7's ac_cv_func_dlopen spelling.
 #
 # NEVER a jit variant on this platform: CPython's experimental JIT target
 # whitelist (PEP 774's tiering, Tools/jit/_targets.py per PEP 836's
@@ -103,12 +113,20 @@ patches:
     file: ssl_module_msys.patch
   - feature: configure_winsock_netdb_msys
     file: configure_winsock_netdb_msys.patch
+  - feature: configure_multiprocessing_win32_msys
+    file: configure_multiprocessing_win32_msys.patch
   - feature: configure_exeext_msys
     file: configure_exeext_msys.patch
   - feature: pylifecycle_checkpython3_msys
     file: pylifecycle_checkpython3_msys.patch
+  - feature: configure_multiprocessing_ws2_32_msys
+    file: configure_multiprocessing_ws2_32_msys.patch
+  - feature: selectmodule_msys
+    file: selectmodule_msys.patch
   - feature: configure_disable_posix_modules_msys
     file: configure_disable_posix_modules_msys.patch
+  - feature: configure_ctypes_libs_msys
+    file: configure_ctypes_libs_msys.patch
   - feature: configure_noerror_incompat_ptr_msys
     file: configure_noerror_incompat_ptr_msys.patch
   - feature: pycore_time_timeval_msys

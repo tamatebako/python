@@ -1,0 +1,49 @@
+# configure_multiprocessing_win32_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0061
+#          "configure: always build _multiprocessing on Windows"
+#          (ported verbatim; the
+#          generated configure equivalent is REGENERATED with the
+#          upstream-pinned autoconf 2.72 — byte-identical regen against
+#          the pristine 3.14.7 configure proven at the base of the
+#          series)
+#
+# Wall item (compile wall, trp windows-msys compile-smoke round 4,
+# run 34750005177, Makefile:3712): after the v0.3.4 pybuilddir pair
+# (0003+0020) fixed the buildsys root, `Modules/_multiprocessing.
+# cp314-mingw_x86_64_ucrt_gnu.pyd` failed to link with
+# `undefined reference to __WSAFDIsSet / __imp_select /
+# __imp_WSAGetLastError`. Two MSYS2 patches stack here: this one
+# (0061) widens the PY_STDLIB_MOD enable condition for
+# _multiprocessing so it builds on win32 (upstream gates it on
+# sem_unlink, which mingw lacks), and 0073 (next patch) attaches the
+# winsock library. Without 0061 the module would silently drop out of
+# the build instead of failing — the wall is what proves the
+# condition must be widened.
+diff --git a/configure b/configure
+index e250048..ccfa21f 100755
+--- a/configure
++++ b/configure
+@@ -33291,7 +33291,7 @@ then :
+ 
+     if true
+ then :
+-  if test "$ac_cv_func_sem_unlink" = "yes"
++  if test "$ac_cv_func_sem_unlink" = "yes" -o "$MACHDEP" = "win32"
+ then :
+   py_cv_module__multiprocessing=yes
+ else case e in #(
+diff --git a/configure.ac b/configure.ac
+index 705bea1..73ff25a 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -8453,7 +8453,7 @@ PY_STDLIB_MOD_SIMPLE([_zoneinfo])
+ 
+ dnl multiprocessing modules
+ PY_STDLIB_MOD([_multiprocessing],
+-  [], [test "$ac_cv_func_sem_unlink" = "yes"],
++  [], [test "$ac_cv_func_sem_unlink" = "yes" -o "$MACHDEP" = "win32"],
+   [-I\$(srcdir)/Modules/_multiprocessing])
+ PY_STDLIB_MOD([_posixshmem],
+   [], [test "$have_posix_shmem" = "yes"],

@@ -85,3 +85,30 @@ jobs:
       version: ${{ matrix.version }}
       platform: ${{ matrix.platform }}
       runs_on: ${{ matrix.platform == 'windows-msys' && 'windows-2022' || 'ubuntu-latest' }}
+
+  # The terminal aggregate — and the branch-protection gate. The lint
+  # and smoke legs are dynamic matrices whose check names shift with
+  # every version bump, so protection pins this job's stable name
+  # instead of any leg's. Green means: both emitters computed, every
+  # lint leg passed, and every emitted smoke leg passed (no smoke legs
+  # at all gates on the emitters + lint).
+  verify:
+    name: all checks green
+    needs: [versions, lint, smoke-legs, smoke]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on the legs
+        run: |
+          set -euo pipefail
+          echo "versions:   ${{ needs.versions.result }}"
+          echo "lint:       ${{ needs.lint.result }}"
+          echo "smoke-legs: ${{ needs.smoke-legs.result }}"
+          echo "smoke:      ${{ needs.smoke.result }} (legs=${{ needs.smoke-legs.outputs.leg_count }})"
+          [ "${{ needs.versions.result }}" = "success" ]
+          [ "${{ needs.lint.result }}" = "success" ]
+          [ "${{ needs.smoke-legs.result }}" = "success" ]
+          if [ "${{ needs.smoke-legs.outputs.leg_count }}" != "0" ] && [ "${{ needs.smoke.result }}" != "success" ]; then
+            echo "::error::not every compile-smoke leg succeeded: ${{ needs.smoke.result }}"
+            exit 1
+          fi

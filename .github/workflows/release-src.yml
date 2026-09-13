@@ -1,6 +1,6 @@
 name: release-src
 
-# Repack-on-bump ONLY (the PROGRESS/23 lesson): the diff-aware plan
+# Repack-on-bump ONLY: the diff-aware plan
 # (tools/build_matrix over Tfs::ReleaseDiff/Tfs::BuildPlan) rebuilds exactly
 # the (version x scenario) rows whose inputs changed — a changed patch line
 # (only the scenarios the changed patches FEED: an _msys patch never
@@ -12,7 +12,7 @@ name: release-src
 # scale one flat matrix does the same job — split per-line when the
 # version count grows.
 #
-# The compile-smoke gate (the v0.2.8 lesson, roadmap 17.0): publish is
+# The compile-smoke gate (the v0.2.8 lesson): publish is
 # gated on tools/smoke_matrix — one representative leg per (changed patch
 # line x affected scenario) compiled by _compile-smoke.yml
 # (tools/compile_smoke) on the scenario's native runner (windows-2022 +

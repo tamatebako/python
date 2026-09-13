@@ -3,8 +3,7 @@
 # Target:  Include/pyport.h (windows-msys scenario)
 # Source:  MSYS2 MINGW-packages mingw-w64-python 0002
 #          "build: Define MS_WINDOWS (and others) when compiling with MINGW"
-#          (ported verbatim; the proven out-of-tree port the TODO.python/05
-#          plan cites)
+#          (ported verbatim; the proven out-of-tree port)
 #
 # Wall item (tebako-runtime-python PR #2, round 5): pyconfig.h.in never
 # defines MS_WINDOWS — upstream windows support is MSVC-only via

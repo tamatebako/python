@@ -1,7 +1,7 @@
 # patch-3.14.yaml — the 3.14 line's canonical patch set
 # (schema/patches.schema.yml; applied in array order by Tfs::SourcePrep).
 #
-# The windows-msys port (TODO.python/05, item 1). Every entry is
+# The windows-msys port. Every entry is
 # _msys-suffixed: the series applies ONLY to the windows-msys scenario
 # tree — the unsuffixed linux-gnu asset stays byte-identical with the
 # pristine upstream tarball. The wall evidence and per-patch rationale are

@@ -10,7 +10,7 @@ tamatebako/ruby's README (`<feature>[_<patch_version>].patch`, snake_case,
 platform markers).
 
 Today the inventory carries exactly one series: **`patches/3.14/`, the
-msys2/ucrt64 port** (TODO.python/05 — the tebako-runtime-python PR #2 wall:
+msys2/ucrt64 port** (motivating wall, tebako-runtime-python PR #2:
 upstream `configure.ac` has zero mingw cases, `pyconfig.h.in` lacks
 `MS_WINDOWS`, `pylifecycle.c`'s `setenv` and `pytime.c`'s `timeval` branch
 hard-stop the ucrt64 build). Every entry of a windows-only series is

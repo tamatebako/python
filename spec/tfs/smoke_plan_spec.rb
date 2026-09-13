@@ -11,8 +11,7 @@ RSpec.describe Tfs::SmokePlan do
     end
   end
 
-  # Two lines: 3.13 linux-gnu-only, 3.14 carrying the windows-msys port
-  # (the TODO.python/05 catalog shape).
+  # Two lines: 3.13 linux-gnu-only, 3.14 carrying the windows-msys port.
   def catalog
     versions_from(<<~YAML)
       versions:

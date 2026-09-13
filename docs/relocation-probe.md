@@ -144,8 +144,8 @@ pip 25.0.1 (.../installed-b/lib/python3.12/site-packages, python 3.12)
   the build-time prefix (it is data generated at configure time); nothing
   in the runtime path resolution reads it. Recorded here so a future
   surprise audit knows it is expected.
-- Scope: macos-arm64 only, per the work item. linux-gnu/musl and windows
-  legs are runtime-factory CI material (TODO.python/02); windows was
-  flagged in the brief as the place a getpath quirk could still force a
-  patch — if one reproduces there, it lands in `patches/` per
-  `patches/README.md`, reviewed, never speculative.
+- Scope: macos-arm64 only. linux-gnu/musl and windows legs are
+  runtime-factory CI material; windows was flagged up front as the place
+  a getpath quirk could still force a patch — if one reproduces there,
+  it lands in `patches/` per `patches/README.md`, reviewed, never
+  speculative.

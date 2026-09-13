@@ -1,0 +1,140 @@
+# configure_test_modules_dynamic_loading_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0064
+#          "configure: fix building some test modules" (ported verbatim;
+#          the generated configure equivalent is REGENERATED with the
+#          upstream-pinned autoconf 2.72 against this patch's exact
+#          predecessor state in the series)
+#
+# Wall item (parity gap, same leg as run 34753278108): the five
+# test/demo modules (_testimportmultiple, _testmultiphase,
+# _testsinglephase, xxlimited, xxlimited_35) were "missing" — upstream
+# gates them on ac_cv_func_dlopen, which mingw lacks (module loading is
+# LoadLibrary-based). MSYS2's answer: introduce have_dynamic_loading
+# (DYNLOADFILE != dynload_stub.o) and gate on that. Also re-gates
+# _ctypes_test — which restores MSYS2-verbatim context for the 0076
+# hunk (configure_ctypes_libs_msys) that v0.3.5 carried in
+# re-authored form.
+diff --git a/configure b/configure
+index de99af1..4cbc7e0 100755
+--- a/configure
++++ b/configure
+@@ -19909,9 +19909,12 @@ fi
+ printf "%s\n" "$DYNLOADFILE" >&6; }
+ if test "$DYNLOADFILE" != "dynload_stub.o"
+ then
++  have_dynamic_loading=yes
+ 
+ printf "%s\n" "#define HAVE_DYNAMIC_LOADING 1" >>confdefs.h
+ 
++else
++  have_dynamic_loading=no
+ fi
+ 
+ # MS_DLL_ID is used for sys.winver and Windows registry keys.
+@@ -35650,7 +35653,7 @@ then :
+ 
+     if test "$TEST_MODULES" = yes
+ then :
+-  if test "$ac_cv_func_dlopen" = yes
++  if test "$have_dynamic_loading" = yes
+ then :
+   py_cv_module__testimportmultiple=yes
+ else case e in #(
+@@ -35690,7 +35693,7 @@ then :
+ 
+     if test "$TEST_MODULES" = yes
+ then :
+-  if test "$ac_cv_func_dlopen" = yes
++  if test "$have_dynamic_loading" = yes
+ then :
+   py_cv_module__testmultiphase=yes
+ else case e in #(
+@@ -35730,7 +35733,7 @@ then :
+ 
+     if test "$TEST_MODULES" = yes
+ then :
+-  if test "$ac_cv_func_dlopen" = yes
++  if test "$have_dynamic_loading" = yes
+ then :
+   py_cv_module__testsinglephase=yes
+ else case e in #(
+@@ -35890,7 +35893,7 @@ then :
+ 
+     if test "$TEST_MODULES" = yes
+ then :
+-  if test "$have_libffi" = yes -a "$ac_cv_func_dlopen" = yes
++  if test "$have_libffi" = yes -a "$have_dynamic_loading" = yes
+ then :
+   py_cv_module__ctypes_test=yes
+ else case e in #(
+@@ -35929,9 +35932,9 @@ printf %s "checking for stdlib extension module xxlimited... " >&6; }
+         if test "$py_cv_module_xxlimited" != "n/a"
+ then :
+ 
+-    if test "$TEST_MODULES" = yes
++    if test "$TEST_MODULES" = "yes"
+ then :
+-  if test "$ac_cv_func_dlopen" = yes
++  if test "$have_dynamic_loading" = yes
+ then :
+   py_cv_module_xxlimited=yes
+ else case e in #(
+@@ -35969,9 +35972,9 @@ printf %s "checking for stdlib extension module xxlimited_35... " >&6; }
+         if test "$py_cv_module_xxlimited_35" != "n/a"
+ then :
+ 
+-    if test "$TEST_MODULES" = yes
++    if test "$TEST_MODULES" = "yes"
+ then :
+-  if test "$ac_cv_func_dlopen" = yes
++  if test "$have_dynamic_loading" = yes
+ then :
+   py_cv_module_xxlimited_35=yes
+ else case e in #(
+diff --git a/configure.ac b/configure.ac
+index f2f2a8e..90a1a0f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5506,8 +5506,11 @@ fi
+ AC_MSG_RESULT([$DYNLOADFILE])
+ if test "$DYNLOADFILE" != "dynload_stub.o"
+ then
++  have_dynamic_loading=yes
+ 	AC_DEFINE([HAVE_DYNAMIC_LOADING], [1],
+         [Defined when any dynamic module loading is enabled.])
++else
++  have_dynamic_loading=no
+ fi
+ 
+ # MS_DLL_ID is used for sys.winver and Windows registry keys.
+@@ -8793,22 +8796,22 @@ PY_STDLIB_MOD([_testclinic_limited], [test "$TEST_MODULES" = yes])
+ PY_STDLIB_MOD([_testlimitedcapi], [test "$TEST_MODULES" = yes])
+ PY_STDLIB_MOD([_testinternalcapi], [test "$TEST_MODULES" = yes])
+ PY_STDLIB_MOD([_testbuffer], [test "$TEST_MODULES" = yes])
+-PY_STDLIB_MOD([_testimportmultiple], [test "$TEST_MODULES" = yes], [test "$ac_cv_func_dlopen" = yes])
+-PY_STDLIB_MOD([_testmultiphase], [test "$TEST_MODULES" = yes], [test "$ac_cv_func_dlopen" = yes])
+-PY_STDLIB_MOD([_testsinglephase], [test "$TEST_MODULES" = yes], [test "$ac_cv_func_dlopen" = yes])
++PY_STDLIB_MOD([_testimportmultiple], [test "$TEST_MODULES" = yes], [test "$have_dynamic_loading" = yes])
++PY_STDLIB_MOD([_testmultiphase], [test "$TEST_MODULES" = yes], [test "$have_dynamic_loading" = yes])
++PY_STDLIB_MOD([_testsinglephase], [test "$TEST_MODULES" = yes], [test "$have_dynamic_loading" = yes])
+ PY_STDLIB_MOD([xxsubtype], [test "$TEST_MODULES" = yes])
+ PY_STDLIB_MOD([_xxtestfuzz], [test "$TEST_MODULES" = yes])
+ PY_STDLIB_MOD([_testconsole], [test "$TEST_MODULES" = yes -a "$MACHDEP" = "win32"])
+ dnl Check have_libffi so _ctypes_test is only built if _ctypes is built.
+ dnl _ctypes_test doesn't use libffi directly.
+ PY_STDLIB_MOD([_ctypes_test],
+-  [test "$TEST_MODULES" = yes], [test "$have_libffi" = yes -a "$ac_cv_func_dlopen" = yes],
++  [test "$TEST_MODULES" = yes], [test "$have_libffi" = yes -a "$have_dynamic_loading" = yes],
+   [], [$LIBM])
+ 
+ dnl Limited API template modules.
+ dnl Emscripten does not support shared libraries yet.
+-PY_STDLIB_MOD([xxlimited], [test "$TEST_MODULES" = yes], [test "$ac_cv_func_dlopen" = yes])
+-PY_STDLIB_MOD([xxlimited_35], [test "$TEST_MODULES" = yes], [test "$ac_cv_func_dlopen" = yes])
++PY_STDLIB_MOD([xxlimited], [test "$TEST_MODULES" = "yes"], [test "$have_dynamic_loading" = yes])
++PY_STDLIB_MOD([xxlimited_35], [test "$TEST_MODULES" = "yes"], [test "$have_dynamic_loading" = yes])
+ 
+ # substitute multiline block, must come after last PY_STDLIB_MOD()
+ AC_SUBST([MODULE_BLOCK])

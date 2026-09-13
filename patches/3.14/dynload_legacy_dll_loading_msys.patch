@@ -1,0 +1,96 @@
+# dynload_legacy_dll_loading_msys.patch
+#
+# Target:  Python/dynload_win.c + Tools/build/check_extension_modules.py
+#          + Lib/test/__main__.py (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0067
+#          "dynload_win: add env var for reverting the legacy DLL
+#          loading paths" (the three upstream-tree hunks ported
+#          verbatim; the mingw_smoketests.py hunk dropped — that file
+#          is MSYS2-packaging-local, not in the upstream tree)
+#
+# Wall item (module-removal wall, same leg as run 34753278108): the
+# build-tree extension check reported `[ERROR] _decimal/_zstd/
+# _testinternalcapi failed to import: DLL load failed` and REMOVED the
+# built .pyd's. Cause: upstream's bpo-36085 hardening loads .pyd's with
+# LOAD_LIBRARY_SEARCH_DEFAULT_DIRS — application dir + System32 +
+# registered user dirs, NOT PATH — so a .pyd's dependency DLLs
+# (libmpdec-2.dll, libzstd.dll, ... in <ucrt64>/bin) are unreachable
+# from an uninstalled build-tree python.exe. MSYS2's answer:
+# PYTHONLEGACYWINDOWSDLLLOADING=1 reverts to
+# LOAD_WITH_ALTERED_SEARCH_PATH (PATH searched again), and
+# check_extension_modules.py sets it for its own imports. The tebako
+# runtime image keeps depending on the DEFAULT_DIRS semantics at run
+# time — the env image lays its DLLs out per spec; this patch only
+# restores the build-time/test-time escape hatch.
+diff --git a/Lib/test/__main__.py b/Lib/test/__main__.py
+index 82b50ad..25bac39 100644
+--- a/Lib/test/__main__.py
++++ b/Lib/test/__main__.py
+@@ -1,2 +1,10 @@
++import os
++import sys
++
+ from test.libregrtest.main import main
++
++if sys.platform == "win32":
++    # Enable DLL loading from PATH.
++    os.environ["PYTHONLEGACYWINDOWSDLLLOADING"] = "1"
++
+ main(_add_python_opts=True)
+diff --git a/Python/dynload_win.c b/Python/dynload_win.c
+index 6324063..4f64dd0 100644
+--- a/Python/dynload_win.c
++++ b/Python/dynload_win.c
+@@ -6,6 +6,7 @@
+ #include "pycore_importdl.h"      // dl_funcptr
+ #include "pycore_interp.h"        // _PyInterpreterState_GetConfig()
+ #include "pycore_pystate.h"       // _PyInterpreterState_GET()
++#include "pycore_initconfig.h"
+ 
+ #include "patchlevel.h"           // PY_MAJOR_VERSION
+ #include <windows.h>
+@@ -212,6 +213,18 @@ dl_funcptr _PyImport_FindSharedFuncptrWindows(const char *prefix,
+     _Py_CheckPython3();
+ #endif /* Py_ENABLE_SHARED */
+ 
++    int use_legacy = 0;
++    DWORD load_library_flags = 0;
++
++    _Py_get_env_flag(1, &use_legacy, "PYTHONLEGACYWINDOWSDLLLOADING");
++
++    if (use_legacy) {
++        load_library_flags = LOAD_WITH_ALTERED_SEARCH_PATH;
++    } else {
++        load_library_flags = LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
++                              LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR;
++    }
++
+     wchar_t *wpathname = PyUnicode_AsWideCharString(pathname, NULL);
+     if (wpathname == NULL)
+         return NULL;
+@@ -232,9 +245,7 @@ dl_funcptr _PyImport_FindSharedFuncptrWindows(const char *prefix,
+            AddDllDirectory function. We add SEARCH_DLL_LOAD_DIR to
+            ensure DLLs adjacent to the PYD are preferred. */
+         Py_BEGIN_ALLOW_THREADS
+-        hDLL = LoadLibraryExW(wpathname, NULL,
+-                              LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+-                              LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
++        hDLL = LoadLibraryExW(wpathname, NULL, load_library_flags);
+         Py_END_ALLOW_THREADS
+         PyMem_Free(wpathname);
+ 
+diff --git a/Tools/build/check_extension_modules.py b/Tools/build/check_extension_modules.py
+index d6b0db0..27c2cb6 100644
+--- a/Tools/build/check_extension_modules.py
++++ b/Tools/build/check_extension_modules.py
+@@ -69,6 +69,10 @@ WINDOWS_MODULES = {
+     "winsound",
+ }
+ 
++if sys.platform == "win32":
++    # Enable DLL loading from PATH.
++    os.environ["PYTHONLEGACYWINDOWSDLLLOADING"] = "1"
++
+ 
+ logger = logging.getLogger(__name__)
+ 

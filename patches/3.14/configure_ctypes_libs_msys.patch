@@ -2,14 +2,14 @@
 #
 # Target:  configure.ac + the generated configure (windows-msys scenario)
 # Source:  MSYS2 MINGW-packages mingw-w64-python 0076
-#          "configure: Add libraries to fix ctypes on MINGW" (the
-#          transformation ported verbatim; hunk-3 context re-authored
-#          for 3.14.7 — MSYS2's context expects `have_dynamic_loading =
-#          yes`, 3.14.7 carries `ac_cv_func_dlopen = yes` in the same
-#          position. The generated configure equivalent is REGENERATED
-#          with the upstream-pinned autoconf 2.72 — byte-identical
-#          regen against the pristine 3.14.7 configure proven at the
-#          base of the series)
+#          "configure: Add libraries to fix ctypes on MINGW" (ported
+#          verbatim — v0.3.5 carried a re-authored hunk-3 context
+#          (ac_cv_func_dlopen) because the series then lacked 0064;
+#          with configure_test_modules_dynamic_loading_msys (0064) in
+#          the series, the have_dynamic_loading context is upstream
+#          again. The generated configure equivalent is REGENERATED
+#          with the upstream-pinned autoconf 2.72 against this patch's
+#          exact predecessor state in the series)
 #
 # Wall item (pre-empted link wall, same leg class as run 34750005177):
 # `_ctypes` is in the probe Makefile's SHAREDMODS (the runner has
@@ -22,10 +22,10 @@
 # `-lole32 -loleaut32 -luuid` (and the probed libffi) to
 # MODULE__CTYPES_LIBS / MODULE__CTYPES_TEST_LIBS under win32.
 diff --git a/configure b/configure
-index 71de2ca..05ddd68 100755
+index d437804..e3156f4 100755
 --- a/configure
 +++ b/configure
-@@ -16797,6 +16797,14 @@ case $MACHDEP in #(
+@@ -16788,6 +16788,14 @@ case $MACHDEP in #(
   ;;
  esac
  
@@ -40,7 +40,7 @@ index 71de2ca..05ddd68 100755
  
  
  
-@@ -34609,7 +34617,7 @@ fi
+@@ -34596,7 +34604,7 @@ fi
  then :
  
      as_fn_append MODULE_BLOCK "MODULE__CTYPES_CFLAGS=$NO_STRICT_OVERFLOW_CFLAGS $LIBFFI_CFLAGS$as_nl"
@@ -49,7 +49,7 @@ index 71de2ca..05ddd68 100755
  
  fi
     if test "$py_cv_module__ctypes" = yes; then
-@@ -35957,7 +35965,7 @@ fi
+@@ -35944,7 +35952,7 @@ fi
  then :
  
  
@@ -59,10 +59,10 @@ index 71de2ca..05ddd68 100755
  fi
     if test "$py_cv_module__ctypes_test" = yes; then
 diff --git a/configure.ac b/configure.ac
-index a50826f..330f00b 100644
+index e687ee9..9c9cab9 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -4554,6 +4554,12 @@ AS_CASE([$MACHDEP],
+@@ -4629,6 +4629,12 @@ AS_CASE([$MACHDEP],
    [SELECTMODULE_LIBS=""]
  )
  
@@ -75,7 +75,7 @@ index a50826f..330f00b 100644
  dnl detect sqlite3 from Emscripten emport
  PY_CHECK_EMSCRIPTEN_PORT([LIBSQLITE3], [-sUSE_SQLITE3])
  
-@@ -8676,7 +8682,7 @@ PY_HACL_CREATE_MODULE([HMAC], [_hmac], [test "$ac_sys_system" != "Emscripten"])
+@@ -8754,7 +8760,7 @@ PY_HACL_CREATE_MODULE([HMAC], [_hmac], [test "$ac_sys_system" != "Emscripten"])
  
  PY_STDLIB_MOD([_ctypes],
    [], [test "$have_libffi" = yes],
@@ -84,10 +84,10 @@ index a50826f..330f00b 100644
  PY_STDLIB_MOD([_curses],
    [], [test "$have_curses" = "yes"],
    [$CURSES_CFLAGS], [$CURSES_LIBS]
-@@ -8755,7 +8761,7 @@ dnl Check have_libffi so _ctypes_test is only built if _ctypes is built.
+@@ -8833,7 +8839,7 @@ dnl Check have_libffi so _ctypes_test is only built if _ctypes is built.
  dnl _ctypes_test doesn't use libffi directly.
  PY_STDLIB_MOD([_ctypes_test],
-   [test "$TEST_MODULES" = yes], [test "$have_libffi" = yes -a "$ac_cv_func_dlopen" = yes],
+   [test "$TEST_MODULES" = yes], [test "$have_libffi" = yes -a "$have_dynamic_loading" = yes],
 -  [], [$LIBM])
 +  [], [$LIBM $CTYPES_LIBS])
  

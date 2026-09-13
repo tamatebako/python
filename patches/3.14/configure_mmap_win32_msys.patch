@@ -1,0 +1,46 @@
+# configure_mmap_win32_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0062
+#          "configure: build `mmap` module on win32" (ported verbatim;
+#          the generated configure equivalent is REGENERATED with the
+#          upstream-pinned autoconf 2.72 against this patch's exact
+#          predecessor state in the series)
+#
+# Wall item (fatal install wall, trp windows-msys leg on v0.3.5,
+# run 34753278108): `make install` died in ensurepip — pip 26.2.1's
+# vendored cachecontrol/filewrapper.py does `import mmap`, and mmap
+# was in the "necessary bits not found" list: upstream gates the module
+# on the posix sys/mman.h probe, which mingw lacks (the module's win32
+# path uses MapViewOfFile, not posix mmap). Widens the condition with
+# `-o "$MACHDEP" = "win32"` (mirroring the _socket stanza below it).
+# The module itself compiles via mmapmodule_no_seh_msys (0097), which
+# the series already carries.
+diff --git a/configure b/configure
+index 4c36663..129e7a9 100755
+--- a/configure
++++ b/configure
+@@ -33459,7 +33459,7 @@ then :
+ 
+     if true
+ then :
+-  if test "$ac_cv_header_sys_mman_h" = "yes" -a "$ac_cv_header_sys_stat_h" = "yes"
++  if test "$ac_cv_header_sys_mman_h" = "yes"                     -a "$ac_cv_header_sys_stat_h" = "yes"                     -o "$MACHDEP" = "win32"
+ then :
+   py_cv_module_mmap=yes
+ else case e in #(
+diff --git a/configure.ac b/configure.ac
+index a7e49cc..58a3539 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -8524,7 +8524,9 @@ PY_STDLIB_MOD([fcntl],
+   [], [test "$ac_cv_header_sys_ioctl_h" = "yes" -a "$ac_cv_header_fcntl_h" = "yes"],
+   [], [$FCNTL_LIBS])
+ PY_STDLIB_MOD([mmap],
+-  [], [test "$ac_cv_header_sys_mman_h" = "yes" -a "$ac_cv_header_sys_stat_h" = "yes"])
++  [], m4_flatten([test "$ac_cv_header_sys_mman_h" = "yes"
++                    -a "$ac_cv_header_sys_stat_h" = "yes"
++                    -o "$MACHDEP" = "win32"]))
+ PY_STDLIB_MOD([_socket],
+   [], m4_flatten([test "$ac_cv_header_sys_socket_h" = "yes"
+                     -a "$ac_cv_header_sys_types_h" = "yes"

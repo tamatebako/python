@@ -1,0 +1,49 @@
+name: runtime-pin-bump
+
+# Closes the drift loop: whenever release-src publishes a source release
+# successfully, tell tamatebako/tebako-runtime-python to open a PR bumping
+# its source_release pin (contract.yml) to the tag just published. The
+# cross-repo mechanism matches tamatebako/ruby's runtime-pin-bump:
+# repository_dispatch via `gh api`, authenticated with the
+# TEBAKO_CI_PAT_TOKEN org secret. No actions are used (only the
+# preinstalled gh CLI), so there is nothing to pin.
+#
+# Idempotent: a re-run of release-src for an already-published tag simply
+# re-sends the same dispatch; the runtime side no-ops when the pin is
+# already at that tag or its bump branch already exists.
+
+on:
+  workflow_run:
+    workflows: ["release-src"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    name: dispatch pin bump for the published tag
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: read the tag the triggering run published
+        id: tag
+        env:
+          TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in
+            v[0-9]*) ;;
+            *) echo "::notice::run head '$TAG' is not a release tag — nothing to dispatch"; exit 0 ;;
+          esac
+          echo "published tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: dispatch to tebako-runtime-python
+        if: steps.tag.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.TEBAKO_CI_PAT_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          gh api repos/tamatebako/tebako-runtime-python/dispatches \
+            -f event_type='tfs-python-src-release' \
+            -F "client_payload[tag]=$TAG"

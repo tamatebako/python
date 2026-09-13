@@ -1,5 +1,5 @@
-# _compile-smoke.yml — the ONE compile-smoke leg shape (TODO.python/05's
-# gate, the tamatebako/ruby smoke-leg role at this factory's scale):
+# _compile-smoke.yml — the ONE compile-smoke leg shape (the
+# tamatebako/ruby smoke-leg role at this factory's scale):
 # tools/compile_smoke on the runner the scenario belongs to. Called by
 # lint.yml (the PR-time oracle — tools/versions --smoke) and by
 # release-src.yml (the publish gate — tools/smoke_matrix). Never

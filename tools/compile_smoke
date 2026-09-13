@@ -3,7 +3,7 @@
 
 # Usage: tools/compile_smoke <version> [outdir] [--platform NAME]
 #
-# The windows port's compile gate (TODO.python/05): stages the version's
+# The windows port's compile gate: stages the version's
 # patched tree for one scenario (the Tfs::SourcePrep apply step), runs
 # ./configure IN TREE (the runtime factory's shape — tebako-runtime-python
 # configures in-tree), and compiles a bounded target set with a bounded
@@ -56,7 +56,7 @@
 # on _get_console_type / _PyIO_get_console_type / winconsoleio_spec), so
 # it is wall-listed on windows-msys only — the pristine POSIX tree has
 # no rule for it and must not fail on its absence. No install: the full
-# runtime build stays the runtime factory's job (TODO.python/05 item 2).
+# runtime build stays the runtime factory's job.
 #
 # The windows-msys leg configures the factory's linkage shape,
 # --enable-shared: PE forbids undefined symbols in a loadable module, so

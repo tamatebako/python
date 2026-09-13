@@ -10,8 +10,8 @@ module Tfs
   # linux-gnu scenario only, which is also the unsuffixed back-compat
   # asset and therefore mandatory in every list).
   #
-  # The scenario axis arrived with the first patch set (TODO.python/05,
-  # the windows-msys port): a scenario tree is the pristine tree plus the
+  # The scenario axis arrived with the first patch set (the windows-msys
+  # port): a scenario tree is the pristine tree plus the
   # scenario's patch set, so the linux-gnu asset stays byte-identical
   # with the pristine upstream tarball while _msys-suffixed patches apply
   # only to the windows-msys tree.

@@ -62,8 +62,8 @@ jobs:
             - the new entry re-verified end-to-end (fetch, sha256, extract, tree sanity)
 
             MERGE GATE: if ${{ matrix.version }} opens a NEW line, check it against
-            xml2rfc's `requires_python` first (versions.yml's header comment — the
-            PROGRESS/25 lesson: pin to what the dependency graph supports, not the
+            xml2rfc's `requires_python` first (versions.yml's header comment —
+            pin to what the dependency graph supports, not the
             newest). A patch release of a tracked line merges as-is.
 
             Merging runs the lint matrix for ${{ matrix.version }}; tag `v*` afterwards to build `tfs-python-${{ matrix.version }}-src.tar.gz` via release-src.
@@ -97,5 +97,5 @@ jobs:
           fi
 
   # No downstream dispatch yet (the ruby factory notifies
-  # tebako-runtime-ruby here): tebako-runtime-python does not exist —
-  # it is TODO.python/02. Add the dispatch when that repo lands.
+  # tebako-runtime-ruby here): tebako-runtime-python consumes new source
+  # releases by bumping its contract.yml source_release pin.

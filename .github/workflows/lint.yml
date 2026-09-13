@@ -47,7 +47,7 @@ jobs:
       - name: verify tarball + tree sanity + patches apply-clean
         run: tools/lint "${{ matrix.version }}"
 
-  # The PR-time compile gate (TODO.python/05): one leg per (version x
+  # The PR-time compile gate: one leg per (version x
   # patch-carrying scenario) — tools/versions --smoke. This is where the
   # msys2/ucrt64 patch series meets a real ucrt64 toolchain; the release
   # gate (release-src.yml's smoke) re-runs the changed lines at the tag.

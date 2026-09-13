@@ -3,9 +3,9 @@
 The **python source factory** of the tebako ecosystem (v2): the canonical
 `versions.yml` of supported upstream CPython releases plus the machinery
 that turns each into a verified, reproducible **`tfs-python-<version>-src.tar.gz`**
-release asset for the runtime factory (tebako-runtime-python,
-TODO.python/02) to consume. Modeled on tamatebako/ruby (the ruby source
-factory) — same layout, same contracts, same lessons.
+release asset for the runtime factory (tebako-runtime-python) to consume.
+Modeled on tamatebako/ruby (the ruby source factory) — same layout, same
+contracts, same lessons.
 
 **Status: live.** Releases (`v*`) carry the per-version
 `tfs-python-<version>-src[-<scenario>].tar.gz` assets + `SHA256SUMS`;
@@ -26,7 +26,7 @@ byte-for-byte the upstream tree (`docs/relocation-probe.md` is why no
 relocation patch is needed). A version declaring a scenario in
 `versions.yml` (`scenarios: [linux-gnu, windows-msys]`) additionally ships
 the suffixed asset of that scenario's patched tree — the 3.14 line's
-`windows-msys` series is the msys2/ucrt64 port (TODO.python/05).
+`windows-msys` series is the msys2/ucrt64 port.
 
 Every tarball is packed with **all tar metadata clamped**
 (`tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner`; the
@@ -46,7 +46,7 @@ per-version sum is the trust anchor the runtime factory verifies against.
   tarball URL, sha256, major.minor line, and the platform `scenarios` it
   ships src releases for (absent means linux-gnu only). **The lines are
   pinned to the dependency graph, not to upstream's newest** (the
-  PROGRESS/25 lesson; the driving payload is xml2rfc — see the file's
+  driving payload is xml2rfc — see the file's
   header comment for the current `requires_python` and the per-version
   sha256 cross-check provenance).
 - `schema/` — JSON Schemas: `versions.schema.yml` for `versions.yml`,
@@ -126,8 +126,8 @@ per-version sum is the trust anchor the runtime factory verifies against.
   which (version × scenario) rows must repack for this tag (changed patch
   line — only the scenarios the changed patches feed; moved versions.yml
   entry; shared tooling change — fail closed; or first release) and which
-  are carried forward. **Repack-on-bump only** — the PROGRESS/23 lesson:
-  an unchanged row is a verified copy, never a gratuitous rebuild.
+  are carried forward. **Repack-on-bump only** — an unchanged row is a
+  verified copy, never a gratuitous rebuild.
 - `tools/copy_asset <previous-tag> <asset> <dest-dir>` — the
   carry-forward half: downloads one asset from the previous release,
   sha256-verifies the bytes against that release's published SHA256SUMS
@@ -156,8 +156,8 @@ tools — the workflows carry no version literals.
   **Merge gate for a NEW line:** check it against xml2rfc's
   `requires_python` before merge (the PR body says so — the
   monitor detects, a human gates). No downstream dispatch exists yet —
-  tebako-runtime-python is TODO.python/02; add it there when that repo
-  lands.
+  tebako-runtime-python consumes releases through its `contract.yml`
+  `source_release` pin; an automatic bump dispatch can be added there.
 - `release-src.yml` (tags `v*` + manual dispatch) — the diff-aware
   repack: `plan` (tools/build_matrix + tools/smoke_matrix) → `smoke`
   (the changed lines' compile gate, `_compile-smoke.yml`) → `build` legs
@@ -167,7 +167,7 @@ tools — the workflows carry no version literals.
   exists for 30+ versions across 5 lines; split per-line here when the
   count grows.
 
-## SSOT: the mount root (PROPOSED — pending owner)
+## The mount root
 
 tamatebako/ruby owns the `/__tfs__`-style mount-root literal for ruby:
 the patch content is the single owner, and the value FLOWS from the
@@ -181,17 +181,12 @@ situation is different by construction (probe evidence:
   `PYTHONHOME` overrides it. The env image mounts wherever the driver
   decides, and the interpreter follows — there is no compiled-in path
   to own or patch.
-- **PROPOSED:** python does not mint a second mount-root literal at all.
-  The runtime's mount point is a driver/factory contract value
-  (tebako-runtime-python sets `PYTHONHOME` to the env image's mount point
-  at boot — the PROGRESS/27 §3 "driver sets env at boot" shape), and the
-  canonical VFS spelling for runtime roots remains owned by
-  tamatebako/ruby (`/__tfs__`) — if the python runtime mounts at that
-  same path, the value FLOWS from the ruby factory's manifest, never a
-  second hand-written copy. Alternative if the owner prefers per-runtime
-  roots: tamatebako/python becomes the owner of a python-specific root
-  literal and every consumer flows it from here. **Decision pending the
-  owner; nothing in this repo hard-codes either spelling.**
+- Python therefore mints no mount-root literal of its own. The runtime's
+  mount point is a driver/factory contract value (tebako-runtime-python
+  sets `PYTHONHOME` to the env image's mount point at boot); when the
+  python runtime mounts at the canonical `/__tfs__` spelling, the value
+  FLOWS from the ruby factory's manifest — never a second hand-written
+  copy. Nothing in this repo hard-codes either spelling.
 
 ## Local development
 

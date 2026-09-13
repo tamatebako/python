@@ -10,7 +10,7 @@ module Tfs
   # ReleaseDiff#changed_scenarios); a shared tooling change correctly
   # re-spends everything, and a versions.yml change re-spends exactly the
   # versions whose entry moved (a new version has no previous asset to
-  # copy, so it always builds). The PROGRESS/23 lesson: no gratuitous
+  # copy, so it always builds). No gratuitous
   # rebuilds — an unchanged version's asset is copied, never re-rolled.
   #
   # The release's asset set stays complete either way — consumers fetch the

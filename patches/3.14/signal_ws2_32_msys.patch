@@ -1,0 +1,31 @@
+# signal_ws2_32_msys.patch
+#
+# Target:  Modules/Setup.bootstrap.in (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0036
+#          "build: fix signal module build" (ported verbatim)
+#
+# Wall item (anticipated link wall, same leg class as run 34725669811):
+# Modules/signalmodule.c:773 calls WSAGetLastError() under MS_WINDOWS
+# (the socket-probe path in signal_sigwaitinfo); _signal is a bootstrap
+# module, so signalmodule.o rides MODULE_OBJS into the
+# _bootstrap_python / _freeze_module / exe links. Those link lines carry
+# $(LIBS) $(MODLIBS) $(SYSLIBS) but NOT the factory's TEBAKO_LIBS, so
+# the ws2_32 reference must come from the module line itself: makesetup
+# folds the trailing -lws2_32 into BASEMODLIBS -> MODLIBS on every link
+# line, and the factory's modlib_rewrites (which only touches
+# MODULE_*_LDFLAGS) never sees it. Ordering: the context line
+# "@MODULE_POSIXMODULE_NAME@ posixmodule.c" is produced by
+# posixmodule_nt_msys (MSYS2 0008), so this patch applies after it.
+diff --git a/Modules/Setup.bootstrap.in b/Modules/Setup.bootstrap.in
+index 0a932d4..b835d80 100644
+--- a/Modules/Setup.bootstrap.in
++++ b/Modules/Setup.bootstrap.in
+@@ -9,7 +9,7 @@
+ atexit atexitmodule.c
+ faulthandler faulthandler.c
+ @MODULE_POSIXMODULE_NAME@ posixmodule.c
+-_signal signalmodule.c
++_signal signalmodule.c -lws2_32
+ _tracemalloc _tracemalloc.c
+ _suggestions _suggestions.c
+ # needs libm and on some platforms librt

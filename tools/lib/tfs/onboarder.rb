@@ -12,9 +12,9 @@ module Tfs
   #      linux-gnu-only because the monitor wrote the default);
   #   2. verify: re-read the pinned manifest and run SourcePrep#check
   #      (fetch via the new entry, sha256 verify, extract, tree sanity) —
-  #      for a PATCHED line this includes the series' git apply --check
-  #      against the new pristine tree (the early warning that a series
-  #      needs a versioned entry).
+  #      for a PATCHED line this includes applying the series in manifest
+  #      order against the new pristine tree (the early warning that a
+  #      series needs a versioned entry).
   # There is no manifest seeding for a NEW line (the ruby factory's step):
   # the windows-msys port lands per line deliberately (patches/README.md),
   # never by an optimistic copy onto an unproven line. On any failure

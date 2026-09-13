@@ -1,0 +1,61 @@
+# configure_noerror_incompat_ptr_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys
+#          scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0078
+#          "configure: make incompatible-pointer-types a warning"
+#          (ported verbatim; the generated configure equivalent is
+#          REGENERATED with the upstream-pinned autoconf 2.72 —
+#          byte-identical regen against pristine proven, no hand-sync;
+#          pyconfig.h.in untouched)
+#
+# Wall item (this PR's local cross-compile evidence,
+# x86_64-w64-mingw32-gcc 14 — GCC 14 escalated
+# -Wincompatible-pointer-types from warning to ERROR): the MS_WINDOWS
+# branches of Modules/posixmodule.c pass wchar_t** where the CRT
+# prototypes take const wchar_t* const* (PathCchSkipRoot at :5269,
+# _wexecv/_wexecve at :7062/:7150, _wspawnv/_wspawnve at :7823/:7945) —
+# code upstream writes for MSVC, which accepts it. MSYS2's answer is
+# the blanket demotion on mingw hosts (fixing every call site would
+# diverge from upstream for zero behavioral gain: the qualifiers are
+# honored by the ABI either way). Was mis-classified "warning-grade"
+# in this sweep's first pass; the GCC-14 escalation makes it
+# gate-critical on any current toolchain (CI ships gcc 16).
+diff --git a/configure b/configure
+index e4cbbb6..156f543 100755
+--- a/configure
++++ b/configure
+@@ -10289,6 +10289,14 @@ then :
+ 
+     CFLAGS_NODIST="$CFLAGS_NODIST -std=c11"
+ 
++    # GCC 14 and later error out with incompatible-pointer-types
++    # this only occues on mingw
++    case $host in
++    *-*-mingw*)
++        CFLAGS_NODIST="$CFLAGS_NODIST -Wno-error=incompatible-pointer-types"
++      ;;
++    esac
++
+ 
+ 
+   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wextra" >&5
+diff --git a/configure.ac b/configure.ac
+index 4a169da..d7ad919 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -2587,6 +2587,14 @@ fi
+ AS_VAR_IF([ac_cv_gcc_compat], [yes], [
+     CFLAGS_NODIST="$CFLAGS_NODIST -std=c11"
+ 
++    # GCC 14 and later error out with incompatible-pointer-types
++    # this only occues on mingw
++    case $host in
++    *-*-mingw*)
++        CFLAGS_NODIST="$CFLAGS_NODIST -Wno-error=incompatible-pointer-types"
++      ;;
++    esac
++
+     PY_CHECK_CC_WARNING([enable], [extra], [if we can add -Wextra])
+     AS_VAR_IF([ac_cv_enable_extra_warning], [yes],
+               [CFLAGS_NODIST="$CFLAGS_NODIST -Wextra"])

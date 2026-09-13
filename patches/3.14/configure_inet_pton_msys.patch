@@ -1,0 +1,232 @@
+# configure_inet_pton_msys.patch
+#
+# Target:  configure.ac + the generated configure (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0041
+#          "configure: fix inet_pton check" (ported verbatim; configure
+#          regenerated with the pinned autoconf 2.72)
+#
+# The socket probe pair of socketmodule_msys (0017): PY_CHECK_SOCKET_FUNC
+# (inet_aton/inet_pton) probes through the POSIX socket headers, which
+# mingw-w64 lacks — the functions are misdetected as absent even though
+# ws2tcpip.h provides them. socketmodule.c's HAVE_INET_PTON branches then
+# compile the fallback (or fail to expose the function), a silent
+# capability loss on a platform that has the API. Probe through
+# ws2tcpip.h under _WIN32 instead.
+diff --git a/configure b/configure
+index 3675f6c..730c719 100755
+--- a/configure
++++ b/configure
+@@ -23857,10 +23857,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -23903,10 +23907,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -23949,10 +23957,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -23995,10 +24007,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24041,10 +24057,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24087,10 +24107,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24133,10 +24157,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24179,10 +24207,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24225,10 +24257,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24271,10 +24307,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24317,10 +24357,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24363,10 +24407,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+@@ -24409,10 +24457,14 @@ else case e in #(
+   e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ 
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ 
+ int
+ main (void)
+diff --git a/configure.ac b/configure.ac
+index 0d73a2e..e1ae5b8 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -5747,10 +5747,14 @@ PY_CHECK_NETDB_FUNC([getprotobyname])
+ 
+ dnl PY_CHECK_SOCKET_FUNC(FUNCTION)
+ AC_DEFUN([PY_CHECK_SOCKET_FUNC], [PY_CHECK_FUNC([$1], [
++#ifdef _WIN32
++#include <ws2tcpip.h>
++#else
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#endif
+ ])])
+ 
+ PY_CHECK_SOCKET_FUNC([inet_aton])

@@ -4,9 +4,10 @@
 # Usage: tools/lint <version>
 # Fetches the version's official tarball (sha256-verified), extracts it,
 # asserts the tree is a CPython source tree (Tfs::SourcePrep::TREE_MARKERS),
-# and — when the version's line carries a patch set — runs
-# git apply --check of every selected patch against the pristine tree
-# (the tamatebako/ruby lint gate's shape, ported).
+# and — when the version's line carries a patch set — applies the selected
+# series to a pristine tree in manifest order (the series is cumulative:
+# a patch's context may assume its predecessors; the tamatebako/ruby lint
+# gate's shape, ported).
 
 $LOAD_PATH.unshift(File.expand_path("lib", __dir__))
 require "tfs"

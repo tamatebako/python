@@ -115,10 +115,10 @@ RSpec.describe Tfs::SourcePrep do
   # The patch-applying surface: a runtime-built patch series over the
   # runtime_manifest tree (offline, nothing committed twice).
   context "with a patched line" do
-    def write_patch_series(patches_root, line, inner_patch:)
+    def write_patch_series(patches_root, line, inner_patch:, hello_patch: nil)
       line_dir = File.join(patches_root, line)
       FileUtils.mkdir_p(line_dir)
-      File.write(File.join(line_dir, "hello_txt.patch"), <<~PATCH)
+      File.write(File.join(line_dir, "hello_txt.patch"), hello_patch || <<~PATCH)
         diff --git a/hello.txt b/hello.txt
         --- a/hello.txt
         +++ b/hello.txt
@@ -150,14 +150,15 @@ RSpec.describe Tfs::SourcePrep do
       PATCH
     end
 
-    def patched_prep(dir, version, inner_patch: nil)
+    def patched_prep(dir, version, inner_patch: nil, hello_patch: nil)
       manifest, tarball = runtime_manifest(dir, version)
       cache = File.join(dir, "cache")
       FileUtils.mkdir_p(cache)
       FileUtils.cp(tarball, File.join(cache, "Python-#{version}.tar.xz"))
       line = version.split(".")[0..1].join(".")
       patches_root = File.join(dir, "patches")
-      write_patch_series(patches_root, line, inner_patch: inner_patch || good_inner_patch)
+      write_patch_series(patches_root, line, inner_patch: inner_patch || good_inner_patch,
+                                             hello_patch: hello_patch)
       described_class.new(versions: manifest,
                           selection: Tfs::PatchSelection.new(patches_root),
                           cache_dir: cache)
@@ -179,11 +180,47 @@ RSpec.describe Tfs::SourcePrep do
       end
     end
 
-    it "audits every selected patch against the pristine tree" do
+    it "audits every selected patch as a cumulative series in manifest order" do
       Dir.mktmpdir do |dir|
         outcomes = patched_prep(dir, "9.9.9").audit("9.9.9", File.join(dir, "audit"))
         expect(outcomes.map { |outcome| [outcome.patch.feature, outcome.status] })
           .to eq([["hello_txt", :ok], ["inner_txt_msys", :ok]])
+      end
+    end
+
+    it "audits a patch whose context only its predecessor creates" do
+      dependent = <<~PATCH
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1,3 +1,3 @@
+         line one
+        -line two (patched)
+        +line two (patched twice)
+         line three
+      PATCH
+      Dir.mktmpdir do |dir|
+        outcomes = patched_prep(dir, "9.9.9", inner_patch: dependent).audit("9.9.9", File.join(dir, "audit"))
+        expect(outcomes.map(&:status)).to eq(%i[ok ok])
+      end
+    end
+
+    it "marks later patches not-checked when the series breaks" do
+      broken_hello = <<~PATCH
+        diff --git a/hello.txt b/hello.txt
+        --- a/hello.txt
+        +++ b/hello.txt
+        @@ -1,3 +1,3 @@
+         line one
+        -content the tree does not carry
+        +line two (patched)
+         line three
+      PATCH
+      Dir.mktmpdir do |dir|
+        outcomes = patched_prep(dir, "9.9.9", hello_patch: broken_hello).audit("9.9.9", File.join(dir, "audit"))
+        expect(outcomes.map(&:status)).to eq(%i[failed failed])
+        expect(outcomes.first.detail).to include("FAIL 9.9.9 hello_txt.patch")
+        expect(outcomes.last.detail).to include("not checked: the series broke at hello_txt.patch")
       end
     end
 

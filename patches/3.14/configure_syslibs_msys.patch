@@ -1,0 +1,101 @@
+# configure_syslibs_msys.patch
+#
+# Target:  configure.ac + the generated configure + Makefile.pre.in
+#          (windows-msys scenario)
+# Source:  tebako DEVIATION — the shape has no MSYS2 counterpart (MSYS2
+#          builds shared: its libpython3.dll resolves the system libs
+#          through the DLL's own import list, so tails never have to
+#          reach module link lines; our --disable-shared static shape
+#          has no such indirection). The lib SET itself is MSYS2's: the
+#          original four from 0059's module tails, then the
+#          -lversion -lshlwapi -lpathcch tail of 0010's mingw LIBS hunk
+#          (0010 itself is skipped as shared-build machinery; its LIBS
+#          hunk is folded in here — MSVC gets the same libs via
+#          `#pragma comment(lib, ...)` in the sources, which GCC
+#          ignores). (The generated configure equivalent is
+#          REGENERATED with the upstream-pinned autoconf 2.72 —
+#          byte-identical regen against pristine proven, no hand-sync;
+#          pyconfig.h.in is untouched: no AC_DEFINE involved.)
+#
+# Wall item (run 34725669811 class, then observed at run 34732802820):
+# the tebako runtime factory's Mlibs.modlib_rewrites rewrites the
+# generated Makefile's MODULE__SSL_LDFLAGS / MODULE__HASHLIB_LDFLAGS
+# (and MODULE_ZLIB_LDFLAGS / MODULE_BINASCII_LDFLAGS) to absolute .a
+# paths — dropping the "-lws2_32 -lcrypt32" tail that ssl_module_msys
+# (MSYS2 0059) appends. Every link that then pulls _ssl.o / _hashlib.o
+# (and the static openssl archives behind them) dies on undefined
+# WSAStartup / CertOpenSystemStore / BCryptGenRandom references. And
+# 34732802820's _freeze_module link died on core-object references:
+# GetFileVersionInfoSizeW / GetFileVersionInfoW / VerQueryValueW
+# (Python/sysmodule.c:1666-1674 -> -lversion) and __imp_PathCchSkipRoot
+# / __imp_PathCchCombineEx (Python/fileutils.c:2160/:2407,
+# Modules/posixmodule.c:5269 -> -lpathcch; pathconfig.c's <shlwapi.h>
+# arm -> -lshlwapi). Fix source-side: configure defines a
+# host-conditional WINDOWS_SYSLIBS (-lws2_32 -lcrypt32 -ladvapi32
+# -lbcrypt -lversion -lshlwapi -lpathcch on *-*-mingw*, empty
+# elsewhere — ws2_32 for signalmodule/openssl sockets, crypt32 for the
+# _ssl cert-store calls 0059 enables, bcrypt+advapi32 for libcrypto's
+# RAND_poll, version+pathcch+shlwapi for the core MS_WINDOWS arms) and
+# Makefile.pre.in appends it to SYSLIBS, which sits
+# after MODLIBS on every link line (python, _bootstrap_python,
+# _freeze_module, _testembed) and is never rewritten downstream.
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index f1b346d..f7e7b71 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -294,7 +294,7 @@ STATIC_LIBPYTHON=	@STATIC_LIBPYTHON@
+ LIBS=		@LIBS@
+ LIBM=		@LIBM@
+ LIBC=		@LIBC@
+-SYSLIBS=	$(LIBM) $(LIBC)
++SYSLIBS=	$(LIBM) $(LIBC) @WINDOWS_SYSLIBS@
+ SHLIBS=		@SHLIBS@
+ 
+ DLINCLDIR=	@DLINCLDIR@
+diff --git a/configure b/configure
+index 1b8d088..e4cbbb6 100755
+--- a/configure
++++ b/configure
+@@ -850,6 +850,7 @@ MODULE_DEPS_SHARED
+ EXT_SUFFIX
+ ALT_SOABI
+ SOABI
++WINDOWS_SYSLIBS
+ LIBC
+ LIBM
+ HAVE_GETHOSTBYNAME
+@@ -26629,6 +26630,12 @@ esac
+ fi
+ 
+ 
++
++case $host in
++	*-*-mingw*)	WINDOWS_SYSLIBS="-lws2_32 -lcrypt32 -ladvapi32 -lbcrypt -lversion -lshlwapi -lpathcch";;
++	*)		WINDOWS_SYSLIBS="";;
++esac
++
+ # **************************************
+ # * Check for gcc x64 inline assembler *
+ # **************************************
+diff --git a/configure.ac b/configure.ac
+index 2f834f0..4a169da 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -6280,6 +6280,17 @@ else AC_MSG_ERROR([proper usage is --with-libc=STRING])
+ fi],
+ [AC_MSG_RESULT([default LIBC="$LIBC"])])
+ 
++dnl tebako windows-msys deviation (no MSYS2 counterpart): extra system
++dnl libraries for static module links. The tebako runtime factory rewrites
++dnl the generated Makefile's MODULE_*_LDFLAGS lines to absolute .a paths,
++dnl dropping the -l tails the mingw port puts there; SYSLIBS sits after
++dnl MODLIBS on every link line and is never rewritten downstream.
++AC_SUBST([WINDOWS_SYSLIBS])
++case $host in
++	*-*-mingw*)	WINDOWS_SYSLIBS="-lws2_32 -lcrypt32 -ladvapi32 -lbcrypt -lversion -lshlwapi -lpathcch";;
++	*)		WINDOWS_SYSLIBS="";;
++esac
++
+ # **************************************
+ # * Check for gcc x64 inline assembler *
+ # **************************************

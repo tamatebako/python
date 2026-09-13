@@ -1,0 +1,80 @@
+# frozenmain_drop_msys.patch
+#
+# Target:  Makefile.pre.in, configure.ac + the generated configure
+#          (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0016
+#          "build: Ignore main program for frozen scripts on MINGW"
+#          (ported verbatim; configure regenerated with the pinned
+#          autoconf 2.72)
+#
+# Wall item (anticipated link wall, same leg class as run 34725669811):
+# Python/frozenmain.c is in PYTHON_OBJS — linked into the exe
+# unconditionally — and under MS_WINDOWS it references
+# PyWinFreeze_ExeInit/PyInitFrozenExtensions, which live only in
+# PC/frozen_dllmain.c (PCbuild-only; the autotools build never compiles
+# it). On mingw those are undefined references at the exe link. The patch
+# removes frozenmain.o from PYTHON_OBJS on mingw via
+# @PYTHON_OBJS_FROZENMAIN@ (frozen-script hosting is a v1-era feature the
+# runtime never uses — payloads ride mounted images, not frozen
+# bytecode).
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index 526d500..b3f3eee 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -444,7 +444,7 @@ PYTHON_OBJS=	\
+ 		Python/errors.o \
+ 		Python/flowgraph.o \
+ 		Python/frame.o \
+-		Python/frozenmain.o \
++		@PYTHON_OBJS_FROZENMAIN@ \
+ 		Python/future.o \
+ 		Python/gc.o \
+ 		Python/gc_free_threading.o \
+diff --git a/configure b/configure
+index 25c93bd..423b21b 100755
+--- a/configure
++++ b/configure
+@@ -828,6 +828,7 @@ OPENSSL_INCLUDES
+ ENSUREPIP
+ CFLAGS_CEVAL
+ SRCDIRS
++PYTHON_OBJS_FROZENMAIN
+ THREADHEADERS
+ PANEL_LIBS
+ PANEL_CFLAGS
+@@ -30860,6 +30861,14 @@ case $host in
+ esac
+ 
+ 
++PYTHON_OBJS_FROZENMAIN="Python/frozenmain.o"
++case $host in
++  *-*-mingw*)
++        PYTHON_OBJS_FROZENMAIN=
++    ;;
++esac
++
++
+ SRCDIRS="\
+   Modules \
+   Modules/_ctypes \
+diff --git a/configure.ac b/configure.ac
+index 9255f4d..2def216 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -7463,6 +7463,16 @@ case $host in
+     ;;
+ esac
+ 
++dnl Python interpreter main program for frozen scripts
++AC_SUBST(PYTHON_OBJS_FROZENMAIN)
++PYTHON_OBJS_FROZENMAIN="Python/frozenmain.o"
++case $host in
++  *-*-mingw*)
++    dnl 'PC/frozen_dllmain.c' - not yet
++    PYTHON_OBJS_FROZENMAIN=
++    ;;
++esac
++
+ AC_SUBST([SRCDIRS])
+ SRCDIRS="\
+   Modules \

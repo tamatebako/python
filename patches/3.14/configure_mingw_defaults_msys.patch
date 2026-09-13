@@ -1,0 +1,142 @@
+# configure_mingw_defaults_msys.patch
+#
+# Target:  configure.ac + the generated configure + the new
+#          Misc/config_mingw / Misc/cross_mingw32 (windows-msys
+#          scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0005
+#          "build: Add default cross configuration for MINGW" (ported
+#          verbatim in content; the patch's FILE ORDER is rearranged —
+#          configure.ac first — so the repo's patch-target sanity check
+#          sees an existing file: the two Misc/ files are creations.
+#          The generated configure equivalent is REGENERATED with the
+#          upstream-pinned autoconf 2.72, byte-identical regen proven;
+#          pyconfig.h.in untouched — ac_cv presets, no AC_DEFINEs.)
+#
+# Despite the MSYS2 title, this is NOT cross-only: the configure.ac
+# loader sources Misc/config_mingw for EVERY *-*-mingw* host, native
+# included (only Misc/cross_mingw32 is cross-gated). Wall items
+# (this PR's first CI leg, run 34730588522, native ucrt64):
+#   * Modules/signalmodule.c:398 implicit declaration of 'alarm' —
+#     the link probe finds alarm in the mingw import libs (HAVE_ALARM
+#     defined) but ucrt64's <unistd.h> declares it only under
+#     __USE_MINGW_ALARM. MSVC's PC/pyconfig.h has no HAVE_ALARM.
+#     ac_cv_func_alarm=ignore pins the probe off.
+#   * Modules/posixmodule.c:9000 implicit declaration of 'ioctl' /
+#     'I_PUSH' undeclared — under the MSYS2 shell /dev/ptmx EXISTS (the
+#     msys runtime emulates it), so the native probe defines
+#     HAVE_DEV_PTMX, os_openpty_impl compiles, and its
+#     !CYGWIN/!ANDROID/!HAVE_DEV_PTC arm reaches the STREAMS ioctls
+#     mingw-w64 does not have. ac_cv_file__dev_ptmx=ignore (+ptc=no)
+#     pins both off; os.openpty simply does not exist on Windows,
+#     matching MSVC.
+# The same file pins ftruncate/truncate off (mingw-w64's are the wrong
+# semantics; posixmodule then takes the _chsize path) and forces
+# getpeername on (winsock2 has it; the plain link probe can't see it
+# without -lws2_32 at probe time).
+diff --git a/configure.ac b/configure.ac
+index 10a1152..1aea917 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1270,6 +1270,28 @@ AC_CACHE_CHECK([for -Wl,--no-as-needed], [ac_cv_wl_no_as_needed], [
+ ])
+ AC_SUBST([NO_AS_NEEDED])
+ 
++# initialize default configuration
++py_config=
++case $host in
++  *-*-mingw*) py_config=mingw ;;
++esac
++if test -n "$py_config" ; then
++  AC_MSG_NOTICE([loading configure defaults from .../Misc/config_$py_config"])
++  . "$srcdir/Misc/config_$py_config"
++fi
++
++# initialize defaults for cross-builds
++if test "$cross_compiling" = yes; then
++  py_config=$host_os
++  case $py_config in
++    mingw32*) py_config=mingw32 ;;
++  esac
++  if test -f "$srcdir/Misc/cross_$py_config" ; then
++    AC_MSG_NOTICE([loading cross defaults from .../Misc/cross_$py_config"])
++    . "$srcdir/Misc/cross_$py_config"
++  fi
++fi
++
+ AC_MSG_CHECKING([for the Android API level])
+ cat > conftest.c <<EOF
+ #ifdef __ANDROID__
+diff --git a/configure b/configure
+index e5329ce..4b76562 100755
+--- a/configure
++++ b/configure
+@@ -7345,6 +7345,30 @@ fi
+ printf "%s\n" "$ac_cv_wl_no_as_needed" >&6; }
+ 
+ 
++# initialize default configuration
++py_config=
++case $host in
++  *-*-mingw*) py_config=mingw ;;
++esac
++if test -n "$py_config" ; then
++  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: loading configure defaults from .../Misc/config_$py_config\"" >&5
++printf "%s\n" "$as_me: loading configure defaults from .../Misc/config_$py_config\"" >&6;}
++  . "$srcdir/Misc/config_$py_config"
++fi
++
++# initialize defaults for cross-builds
++if test "$cross_compiling" = yes; then
++  py_config=$host_os
++  case $py_config in
++    mingw32*) py_config=mingw32 ;;
++  esac
++  if test -f "$srcdir/Misc/cross_$py_config" ; then
++    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: loading cross defaults from .../Misc/cross_$py_config\"" >&5
++printf "%s\n" "$as_me: loading cross defaults from .../Misc/cross_$py_config\"" >&6;}
++    . "$srcdir/Misc/cross_$py_config"
++  fi
++fi
++
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for the Android API level" >&5
+ printf %s "checking for the Android API level... " >&6; }
+ cat > conftest.c <<EOF
+diff --git a/Misc/config_mingw b/Misc/config_mingw
+new file mode 100644
+index 0000000..8497aa2
+--- /dev/null
++++ b/Misc/config_mingw
+@@ -0,0 +1,15 @@
++# configure defaults for mingw* hosts
++
++# mingw functions to ignore
++ac_cv_func_ftruncate=ignore	# implement it as _chsize
++
++# mingw-w64 functions to ignore
++ac_cv_func_truncate=ignore
++ac_cv_func_alarm=ignore
++
++# files to ignore
++ac_cv_file__dev_ptmx=ignore #NOTE: under MSYS environment device exist
++ac_cv_file__dev_ptc=no
++
++# force detection of winsock2 functionality - require wxp or newer
++ac_cv_func_getpeername=yes
+\ No newline at end of file
+diff --git a/Misc/cross_mingw32 b/Misc/cross_mingw32
+new file mode 100644
+index 0000000..03fde9e
+--- /dev/null
++++ b/Misc/cross_mingw32
+@@ -0,0 +1,11 @@
++# configure defaults for mingw32 host if cross-build
++
++ac_cv_little_endian_double=yes
++ac_cv_big_endian_double=no
++ac_cv_mixed_endian_double=no
++
++ac_cv_tanh_preserves_zero_sign=yes
++
++ac_cv_wchar_t_signed=no
++
++ac_cv_have_size_t_format=no

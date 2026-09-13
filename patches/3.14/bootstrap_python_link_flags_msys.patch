@@ -1,0 +1,27 @@
+# bootstrap_python_link_flags_msys.patch
+#
+# Target:  Makefile.pre.in (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0056
+#          "build: Add extra flags for _bootstrap_python" (ported
+#          verbatim)
+#
+# Wall item (anticipated link wall, same leg class as run 34725669811):
+# Programs/_bootstrap_python.c defines wmain (not main) under MS_WINDOWS,
+# and mingw's CRT startup only calls wmain when linked -municode —
+# otherwise the _bootstrap_python link (which runs during every make: it
+# freezes the stdlib modules) dies on the missing entry point. -mwindows
+# rides along from the proven patch (GUI subsystem: no console window for
+# the build-time tool).
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index a4c738b..f1b346d 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -1681,7 +1681,7 @@ BOOTSTRAP_HEADERS = \
+ Programs/_bootstrap_python.o: Programs/_bootstrap_python.c $(BOOTSTRAP_HEADERS) $(PYTHON_HEADERS)
+ 
+ _bootstrap_python: $(LIBRARY_OBJS_OMIT_FROZEN) Programs/_bootstrap_python.o Modules/getpath.o Modules/Setup.local
+-	$(LINKCC) $(PY_LDFLAGS_NOLTO) -o $@ $(LIBRARY_OBJS_OMIT_FROZEN) \
++	$(LINKCC) $(PY_LDFLAGS_NOLTO) -o $@ -municode -mwindows $(LIBRARY_OBJS_OMIT_FROZEN) \
+ 		Programs/_bootstrap_python.o Modules/getpath.o $(LIBS) $(MODLIBS) $(SYSLIBS)
+ 	# Dummy pybuilddir.txt  is needed for _bootstrap_python to be runnable
+ 	@echo "none" > ./pybuilddir.txt

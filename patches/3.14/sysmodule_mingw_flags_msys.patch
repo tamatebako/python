@@ -1,0 +1,68 @@
+# sysmodule_mingw_flags_msys.patch
+#
+# Target:  Python/sysmodule.c (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0003
+#          "sysmodule: Implement flags \"_is_mingw\", \"is_mingw_ucrt\"
+#          and \"_use_alt_sep\"" (verbatim)
+#
+# Previously a deliberate skip (the series carried no consumer). v0.3.4
+# ports MSYS2 0020 (sysconfig_posix_builds_msys), whose nt-guards read
+# sys._is_mingw — this patch provides it. The flags are defined on EVERY
+# platform (is_mingw() is 0 where __MINGW32__ is undefined), so a
+# consumer never sees AttributeError off-mingw; _use_alt_sep reads the
+# MSYSTEM env var (MSYS2's interactive-shell marker) and is carried for
+# series fidelity — the tebako runtime never sets MSYSTEM, so it stays 0.
+diff --git a/Python/sysmodule.c b/Python/sysmodule.c
+index eeb9ef2..17d862d 100644
+--- a/Python/sysmodule.c
++++ b/Python/sysmodule.c
+@@ -165,6 +165,38 @@ PySys_GetObject(const char *name)
+     return value;
+ }
+ 
++static int
++use_alt_sep(void)
++{
++#ifdef MS_WINDOWS
++    char* msystem = getenv("MSYSTEM");
++    if (msystem != NULL && strcmp(msystem, "") != 0) {
++        return 1;
++    }
++#endif
++    return 0;
++}
++
++static int
++is_mingw(void)
++{
++#ifdef __MINGW32__
++    return 1;
++#else
++    return 0;
++#endif
++}
++
++static int
++is_mingw_ucrt(void)
++{
++#if defined(__MINGW32__) && defined(_UCRT)
++    return 1;
++#else
++    return 0;
++#endif
++}
++
+ static int
+ sys_set_object(PyInterpreterState *interp, PyObject *key, PyObject *v)
+ {
+@@ -3889,6 +3921,10 @@ _PySys_InitCore(PyThreadState *tstate, PyObject *sysdict)
+     SET_SYS_FROM_STRING("byteorder", "little");
+ #endif
+ 
++    SET_SYS("_is_mingw", PyLong_FromLong(is_mingw()));
++    SET_SYS("_is_mingw_ucrt", PyLong_FromLong(is_mingw_ucrt()));
++    SET_SYS("_use_alt_sep", PyLong_FromLong(use_alt_sep()));
++
+ #ifdef MS_COREDLL
+     SET_SYS("dllhandle", PyLong_FromVoidPtr(PyWin_DLLhModule));
+     SET_SYS_FROM_STRING("winver", PyWin_DLLVersionString);

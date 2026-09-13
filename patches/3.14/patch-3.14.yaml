@@ -28,7 +28,14 @@
 # CI leg exposed the next one: site.py's win32 branch reads sys.winver,
 # which upstream sysmodule.c installs only under the MSVC-project-only
 # MS_COREDLL — answered by 0034 (the guard becomes
-# defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)).
+# defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)). v0.3.4 answers
+# v0.3.3's third CI leg (trp run 34748169561): the shared build's
+# pybuilddir.txt rule dies in sysconfig --generate-posix-vars with
+# KeyError 'LIBPL' — upstream's nt path (_init_non_posix) never merges
+# the Makefile-parsed build_time_vars — answered by 0020 (mingw builds
+# take the posix sysconfig path) riding on 0003's sys._is_mingw flag,
+# which the series previously skipped for lack of a consumer; 0034's
+# hunk 3 returns to its MSYS2-verbatim (0003-carrying) context.
 #
 # NEVER a jit variant on this platform: CPython's experimental JIT target
 # whitelist (PEP 774's tiering, Tools/jit/_targets.py per PEP 836's
@@ -42,6 +49,8 @@ patches:
     file: configure_nt_threads_msys.patch
   - feature: pyport_ms_windows_msys
     file: pyport_ms_windows_msys.patch
+  - feature: sysmodule_mingw_flags_msys
+    file: sysmodule_mingw_flags_msys.patch
   - feature: configure_machdep_msys
     file: configure_machdep_msys.patch
   - feature: configure_mingw_defaults_msys
@@ -72,6 +81,8 @@ patches:
     file: socketmodule_msys.patch
   - feature: winreg_modules_msys
     file: winreg_modules_msys.patch
+  - feature: sysconfig_posix_builds_msys
+    file: sysconfig_posix_builds_msys.patch
   - feature: signal_ws2_32_msys
     file: signal_ws2_32_msys.patch
   - feature: io_winconsoleio_msys

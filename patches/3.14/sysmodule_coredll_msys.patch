@@ -2,10 +2,11 @@
 #
 # Target:  Python/sysmodule.c (windows-msys scenario)
 # Source:  MSYS2 MINGW-packages mingw-w64-python 0034
-#          "build: remove usage of MS_COREDLL" (hunks re-authored
-#          against 3.14.7: the upstream hunk-3 context rides MSYS2's
-#          own 0003 sys._is_mingw_ucrt patch, which this series does
-#          not carry; the transformation itself is verbatim)
+#          "build: remove usage of MS_COREDLL" (verbatim since v0.3.4 —
+#          the hunk-3 context rides MSYS2's 0003 sys._is_mingw flags,
+#          which this series now carries as sysmodule_mingw_flags_msys;
+#          v0.3.3 carried a re-authored hunk 3 with the 0003 lines
+#          excised)
 #
 # Wall (PR #18 CI run 34742370411, job 103684133612, smoke 3.14.7
 # (windows-msys)): with 0018 in, the interpreter boots past
@@ -31,7 +32,7 @@
 # behavior is unchanged; POSIX legs untouched (MS_WINDOWS is never
 # defined there). No configure.ac change — no regen.
 diff --git a/Python/sysmodule.c b/Python/sysmodule.c
-index eeb9ef2..db1b5af 100644
+index 17d862d..8232fc3 100644
 --- a/Python/sysmodule.c
 +++ b/Python/sysmodule.c
 @@ -53,7 +53,7 @@ Data members:
@@ -43,7 +44,7 @@ index eeb9ef2..db1b5af 100644
  extern void *PyWin_DLLhModule;
  /* A string loaded from the DLL at startup: */
  extern const char *PyWin_DLLVersionString;
-@@ -3336,14 +3336,14 @@ version -- the version of this interpreter as a string\n\
+@@ -3368,14 +3368,14 @@ version -- the version of this interpreter as a string\n\
  version_info -- version information as a named tuple\n\
  "
  )
@@ -60,9 +61,9 @@ index eeb9ef2..db1b5af 100644
  #ifdef MS_WINDOWS
  /* concatenating string here */
  PyDoc_STR(
-@@ -3889,7 +3889,7 @@ _PySys_InitCore(PyThreadState *tstate, PyObject *sysdict)
-     SET_SYS_FROM_STRING("byteorder", "little");
- #endif
+@@ -3925,7 +3925,7 @@ _PySys_InitCore(PyThreadState *tstate, PyObject *sysdict)
+     SET_SYS("_is_mingw_ucrt", PyLong_FromLong(is_mingw_ucrt()));
+     SET_SYS("_use_alt_sep", PyLong_FromLong(use_alt_sep()));
  
 -#ifdef MS_COREDLL
 +#if defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)

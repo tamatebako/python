@@ -10,21 +10,27 @@
 # SEH __try/__except, which GCC does not implement: a hard compile
 # error. DONT_USE_SEH (the logic copied from callproc.c, per the
 # upstream comment MSYS2 cites) selects the guard-free paths on mingw.
-diff --git a/Modules/mmapmodule.c b/Modules/mmapmodule.c
-index f7b8ab3..6cea430 100644
---- a/Modules/mmapmodule.c
-+++ b/Modules/mmapmodule.c
-@@ -62,6 +62,13 @@ my_getallocationgranularity (void)
- 
- #endif
- 
-+#if defined(_DEBUG) || defined(__MINGW32__)
-+/* Don't use structured exception handling on Windows if this is defined.
-+   MingW, AFAIK, doesn't support it.
-+*/
-+#define DONT_USE_SEH
-+#endif
-+
- #ifdef UNIX
- #include <sys/mman.h>
- #include <sys/stat.h>
+diff --git a/configure b/configure
+index b31373c..1be9f0e 100755
+--- a/configure
++++ b/configure
+@@ -32609,6 +32609,7 @@ case "$ac_sys_system" in
+   iOS) _PYTHREAD_NAME_MAXLEN=63;;
+   FreeBSD*) _PYTHREAD_NAME_MAXLEN=19;; # gh-131268
+   OpenBSD*) _PYTHREAD_NAME_MAXLEN=23;; # gh-131268
++  MINGW*) _PYTHREAD_NAME_MAXLEN=32766;;
+   *) _PYTHREAD_NAME_MAXLEN=;;
+ esac
+ if test -n "$_PYTHREAD_NAME_MAXLEN"; then
+diff --git a/configure.ac b/configure.ac
+index 39b04e7..5d50b91 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -8210,6 +8210,7 @@ case "$ac_sys_system" in
+   iOS) _PYTHREAD_NAME_MAXLEN=63;;
+   FreeBSD*) _PYTHREAD_NAME_MAXLEN=19;; # gh-131268
+   OpenBSD*) _PYTHREAD_NAME_MAXLEN=23;; # gh-131268
++  MINGW*) _PYTHREAD_NAME_MAXLEN=32766;;
+   *) _PYTHREAD_NAME_MAXLEN=;;
+ esac
+ if test -n "$_PYTHREAD_NAME_MAXLEN"; then

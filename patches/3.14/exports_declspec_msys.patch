@@ -1,0 +1,70 @@
+# exports_declspec_msys.patch
+#
+# Target:  Include/exports.h (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0009
+#          "exports.h: Add support for MINGW" (ported verbatim)
+#
+# Wall item (observed link wall, tebako-runtime-python PR #16 run
+# 34735362057): on PE/Windows a loadable extension module cannot have
+# undefined symbols at link time, so the extension set must link the
+# core's import library — which requires the core to EXPORT its API
+# surface in the MSVC style. Upstream gates the __declspec treatment on
+# __CYGWIN__ alone (the MSVC spellings live in PC/pyconfig.h), so under
+# a mingw --enable-shared build the core exports nothing and the
+# Modules/array.cpython-314.so link dies on PyExc_EOFError/_Py_Dealloc/
+# PyUnicode_* undefined references. The patch defines HAVE_DECLSPEC_DLL
+# on __MINGW32__ and takes the cygwin arms (auto-import functions,
+# dllimport data, exported PyMODINIT_FUNC) for mingw. Inert for the
+# --disable-shared build: the whole special-linkage block still gates on
+# defined(Py_ENABLE_SHARED) || defined(__CYGWIN__), so the static tree's
+# spellings are untouched (the smoke's POSIX/static legs unchanged).
+diff --git a/Include/exports.h b/Include/exports.h
+index 0c646d5..62d84ed 100644
+--- a/Include/exports.h
++++ b/Include/exports.h
+@@ -15,12 +15,12 @@
+ */
+ 
+ /*
+-  All windows ports, except cygwin, are handled in PC/pyconfig.h.
++  Only MSVC windows ports is handled in PC/pyconfig.h.
+ 
+-  Cygwin is the only other autoconf platform requiring special
++  Cygwin and Mingw is the only other autoconf platform requiring special
+   linkage handling and it uses __declspec().
+ */
+-#if defined(__CYGWIN__)
++#if defined(__CYGWIN__) || defined(__MINGW32__)
+ #       define HAVE_DECLSPEC_DLL
+ #endif
+ 
+@@ -60,21 +60,23 @@
+ #                       define PyAPI_FUNC(RTYPE) Py_EXPORTED_SYMBOL RTYPE
+ #                       define PyAPI_DATA(RTYPE) extern Py_EXPORTED_SYMBOL RTYPE
+         /* module init functions inside the core need no external linkage */
+-        /* except for Cygwin to handle embedding */
+-#                       if defined(__CYGWIN__)
++        /* except for Cygwin/Mingw to handle embedding */
++#                       if defined(__CYGWIN__) || defined(__MINGW32__)
+ #                               define PyMODINIT_FUNC Py_EXPORTED_SYMBOL PyObject*
+-#                       else /* __CYGWIN__ */
++#                       else /* __CYGWIN__ || __MINGW32__*/
+ #                               define PyMODINIT_FUNC PyObject*
+-#                       endif /* __CYGWIN__ */
++#                       endif /* __CYGWIN__ || __MINGW32__*/
+ #               else /* Py_BUILD_CORE */
+         /* Building an extension module, or an embedded situation */
+         /* public Python functions and data are imported */
+         /* Under Cygwin, auto-import functions to prevent compilation */
+         /* failures similar to those described at the bottom of 4.1: */
+         /* http://docs.python.org/extending/windows.html#a-cookbook-approach */
+-#                       if !defined(__CYGWIN__)
++#                       if defined(__CYGWIN__) || defined(__MINGW32__)
++#                               define PyAPI_FUNC(RTYPE) RTYPE
++#                       else
+ #                               define PyAPI_FUNC(RTYPE) Py_IMPORTED_SYMBOL RTYPE
+-#                       endif /* !__CYGWIN__ */
++#                       endif /* __CYGWIN__ || __MINGW32__*/
+ #                       define PyAPI_DATA(RTYPE) extern Py_IMPORTED_SYMBOL RTYPE
+         /* module init functions outside the core must be exported */
+ #                       if defined(__cplusplus)

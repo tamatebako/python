@@ -13,10 +13,10 @@
 # capability loss on a platform that has the API. Probe through
 # ws2tcpip.h under _WIN32 instead.
 diff --git a/configure b/configure
-index 3675f6c..730c719 100755
+index 1147514..0e6b6f3 100755
 --- a/configure
 +++ b/configure
-@@ -23857,10 +23857,14 @@ else case e in #(
+@@ -24019,10 +24019,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -31,7 +31,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -23903,10 +23907,14 @@ else case e in #(
+@@ -24065,10 +24069,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -46,7 +46,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -23949,10 +23957,14 @@ else case e in #(
+@@ -24111,10 +24119,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -61,7 +61,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -23995,10 +24007,14 @@ else case e in #(
+@@ -24157,10 +24169,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -76,7 +76,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24041,10 +24057,14 @@ else case e in #(
+@@ -24203,10 +24219,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -91,7 +91,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24087,10 +24107,14 @@ else case e in #(
+@@ -24249,10 +24269,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -106,7 +106,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24133,10 +24157,14 @@ else case e in #(
+@@ -24295,10 +24319,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -121,7 +121,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24179,10 +24207,14 @@ else case e in #(
+@@ -24341,10 +24369,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -136,7 +136,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24225,10 +24257,14 @@ else case e in #(
+@@ -24387,10 +24419,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -151,7 +151,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24271,10 +24307,14 @@ else case e in #(
+@@ -24433,10 +24469,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -166,7 +166,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24317,10 +24357,14 @@ else case e in #(
+@@ -24479,10 +24519,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -181,7 +181,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24363,10 +24407,14 @@ else case e in #(
+@@ -24525,10 +24569,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -196,7 +196,7 @@ index 3675f6c..730c719 100755
  
  int
  main (void)
-@@ -24409,10 +24457,14 @@ else case e in #(
+@@ -24571,10 +24619,14 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -212,10 +212,10 @@ index 3675f6c..730c719 100755
  int
  main (void)
 diff --git a/configure.ac b/configure.ac
-index 0d73a2e..e1ae5b8 100644
+index b9cf7ce..603ab94 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -5747,10 +5747,14 @@ PY_CHECK_NETDB_FUNC([getprotobyname])
+@@ -5792,10 +5792,14 @@ PY_CHECK_NETDB_FUNC([getprotobyname])
  
  dnl PY_CHECK_SOCKET_FUNC(FUNCTION)
  AC_DEFUN([PY_CHECK_SOCKET_FUNC], [PY_CHECK_FUNC([$1], [

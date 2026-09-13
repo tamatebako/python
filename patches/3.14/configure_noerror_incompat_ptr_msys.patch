@@ -21,41 +21,16 @@
 # honored by the ABI either way). Was mis-classified "warning-grade"
 # in this sweep's first pass; the GCC-14 escalation makes it
 # gate-critical on any current toolchain (CI ships gcc 16).
-diff --git a/configure b/configure
-index e4cbbb6..156f543 100755
---- a/configure
-+++ b/configure
-@@ -10289,6 +10289,14 @@ then :
+diff --git a/Include/internal/pycore_time.h b/Include/internal/pycore_time.h
+index 2331247..edfcaef 100644
+--- a/Include/internal/pycore_time.h
++++ b/Include/internal/pycore_time.h
+@@ -59,7 +59,7 @@ extern "C" {
  
-     CFLAGS_NODIST="$CFLAGS_NODIST -std=c11"
+ #include "pycore_runtime_structs.h" // _PyTimeFraction
  
-+    # GCC 14 and later error out with incompatible-pointer-types
-+    # this only occues on mingw
-+    case $host in
-+    *-*-mingw*)
-+        CFLAGS_NODIST="$CFLAGS_NODIST -Wno-error=incompatible-pointer-types"
-+      ;;
-+    esac
-+
+-#ifdef __clang__
++#ifdef MS_WINDOWS
+ struct timeval;
+ #endif
  
- 
-   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking if we can add -Wextra" >&5
-diff --git a/configure.ac b/configure.ac
-index 4a169da..d7ad919 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -2587,6 +2587,14 @@ fi
- AS_VAR_IF([ac_cv_gcc_compat], [yes], [
-     CFLAGS_NODIST="$CFLAGS_NODIST -std=c11"
- 
-+    # GCC 14 and later error out with incompatible-pointer-types
-+    # this only occues on mingw
-+    case $host in
-+    *-*-mingw*)
-+        CFLAGS_NODIST="$CFLAGS_NODIST -Wno-error=incompatible-pointer-types"
-+      ;;
-+    esac
-+
-     PY_CHECK_CC_WARNING([enable], [extra], [if we can add -Wextra])
-     AS_VAR_IF([ac_cv_enable_extra_warning], [yes],
-               [CFLAGS_NODIST="$CFLAGS_NODIST -Wextra"])

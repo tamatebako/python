@@ -15,10 +15,10 @@
 # Setup.local *disabled* list overlaps deliberately (readline &co.);
 # this patch covers the ones it does not name.
 diff --git a/configure b/configure
-index efadbf5..6dac703 100755
+index d3e9f1c..b31373c 100755
 --- a/configure
 +++ b/configure
-@@ -32340,6 +32340,23 @@ case $ac_sys_system in #(
+@@ -32664,6 +32664,23 @@ case $ac_sys_system in #(
  
      py_cv_module__scproxy=n/a
   ;; #(
@@ -43,10 +43,10 @@ index efadbf5..6dac703 100755
  
  
 diff --git a/configure.ac b/configure.ac
-index 43c1417..d47bcda 100644
+index 95cb4a2..39b04e7 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -8112,6 +8112,20 @@ AS_CASE([$ac_sys_system],
+@@ -8255,6 +8255,20 @@ AS_CASE([$ac_sys_system],
      )
    ],
    [CYGWIN*], [PY_STDLIB_MOD_SET_NA([_scproxy])],

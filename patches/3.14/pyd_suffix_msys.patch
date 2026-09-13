@@ -1,0 +1,60 @@
+# pyd_suffix_msys.patch
+#
+# Target:  configure.ac + Makefile.pre.in + the generated configure
+#          (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0013
+#          "build: Use .pyd extension suffix + fix import lib install
+#          location" (ported verbatim; the generated configure is
+#          regenerated with the upstream-pinned autoconf 2.72, not
+#          hand-synced)
+#
+# Cluster item (forced by dynload_win_msys — see that header for the
+# wall narrative and the coherence argument). Sets SHLIB_SUFFIX=.pyd
+# for mingw so EXT_SUFFIX (soabi_ext_suffix_msys) lands on the .pyd
+# spelling that dynload_win's import filetab searches, and teaches the
+# bininstall import-library rule to accept .pyd next to .dll.
+# Previously deferred as naming parity; the .pyd filetab makes it
+# load-bearing. POSIX legs untouched (mingw* case arms only).
+diff --git a/Makefile.pre.in b/Makefile.pre.in
+index 54c7124..e408c6d 100644
+--- a/Makefile.pre.in
++++ b/Makefile.pre.in
+@@ -2947,8 +2947,8 @@ libainstall: all scripts
+ 	@if test "$(STATIC_LIBPYTHON)" = 1; then \
+ 		if test -d $(LIBRARY); then :; else \
+ 			if test "$(PYTHONFRAMEWORKDIR)" = no-framework; then \
+-				if test "$(SHLIB_SUFFIX)" = .dll; then \
+-					$(INSTALL_DATA) $(LDLIBRARY) $(DESTDIR)$(LIBPL) ; \
++				if test "$(SHLIB_SUFFIX)" = .dll -o "$(SHLIB_SUFFIX)" = .pyd; then \
++					$(INSTALL_DATA) $(LDLIBRARY) $(DESTDIR)$(LIBDIR) ; \
+ 				else \
+ 					$(INSTALL_DATA) $(LIBRARY) $(DESTDIR)$(LIBPL)/$(LIBRARY) ; \
+ 				fi; \
+diff --git a/configure b/configure
+index 591ef8a..226aee0 100755
+--- a/configure
++++ b/configure
+@@ -14081,6 +14081,9 @@ if test -z "$SHLIB_SUFFIX"; then
+ 	CYGWIN*)   SHLIB_SUFFIX=.dll;;
+ 	*)	   SHLIB_SUFFIX=.so;;
+ 	esac
++	case $host_os in
++	mingw*)    SHLIB_SUFFIX=.pyd;;
++	esac
+ fi
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $SHLIB_SUFFIX" >&5
+ printf "%s\n" "$SHLIB_SUFFIX" >&6; }
+diff --git a/configure.ac b/configure.ac
+index caafecd..fa32c71 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -3586,6 +3586,9 @@ if test -z "$SHLIB_SUFFIX"; then
+ 	CYGWIN*)   SHLIB_SUFFIX=.dll;;
+ 	*)	   SHLIB_SUFFIX=.so;;
+ 	esac
++	case $host_os in
++	mingw*)    SHLIB_SUFFIX=.pyd;;
++	esac
+ fi
+ AC_MSG_RESULT([$SHLIB_SUFFIX])
+ 

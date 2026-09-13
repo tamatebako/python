@@ -1,0 +1,71 @@
+# sysmodule_coredll_msys.patch
+#
+# Target:  Python/sysmodule.c (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0034
+#          "build: remove usage of MS_COREDLL" (hunks re-authored
+#          against 3.14.7: the upstream hunk-3 context rides MSYS2's
+#          own 0003 sys._is_mingw_ucrt patch, which this series does
+#          not carry; the transformation itself is verbatim)
+#
+# Wall (PR #18 CI run 34742370411, job 103684133612, smoke 3.14.7
+# (windows-msys)): with 0018 in, the interpreter boots past
+# _PyImport_InitExternal and dies one step later — every make target
+# at the frozen-headers regen:
+#
+#   Lib/site.py:330, in _get_path: ver_nodot = sys.winver.replace(...)
+#   AttributeError: module 'sys' has no attribute 'winver'
+#   make: *** [Makefile:1964: Python/frozen_modules/abc.h] Error 1
+#   make: *** [Makefile:1967: Python/frozen_modules/codecs.h] Error 1
+#
+# sys.platform == "win32" (configure_machdep_msys), so site.py's
+# _get_path takes the win32 branch and reads sys.winver — but upstream
+# sysmodule.c installs winver/dllhandle only under MS_COREDLL, an
+# MSVC-project-only macro (PC/pyconfig.h) the autotools build never
+# defines. The definitions it guards DO exist in this link: 0012
+# (dynload_win_msys) compiles PC/dl_nt.o (PyWin_DLLhModule,
+# PyWin_DLLVersionString) and 0015 (ms_dll_id_msys) defines MS_DLL_ID —
+# sysmodule.c simply never installs the attributes. The MSYS2 answer:
+# the guard becomes defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED),
+# "known macros" for the autotools shape. In the static
+# (--disable-shared) shape the new guard stays false, so static
+# behavior is unchanged; POSIX legs untouched (MS_WINDOWS is never
+# defined there). No configure.ac change — no regen.
+diff --git a/Python/sysmodule.c b/Python/sysmodule.c
+index eeb9ef2..db1b5af 100644
+--- a/Python/sysmodule.c
++++ b/Python/sysmodule.c
+@@ -53,7 +53,7 @@ Data members:
+ #  include <windows.h>
+ #endif /* MS_WINDOWS */
+ 
+-#ifdef MS_COREDLL
++#if defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)
+ extern void *PyWin_DLLhModule;
+ /* A string loaded from the DLL at startup: */
+ extern const char *PyWin_DLLVersionString;
+@@ -3336,14 +3336,14 @@ version -- the version of this interpreter as a string\n\
+ version_info -- version information as a named tuple\n\
+ "
+ )
+-#ifdef MS_COREDLL
++#if defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)
+ /* concatenating string here */
+ PyDoc_STR(
+ "dllhandle -- [Windows only] integer handle of the Python DLL\n\
+ winver -- [Windows only] version number of the Python DLL\n\
+ "
+ )
+-#endif /* MS_COREDLL */
++#endif /* defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED) */
+ #ifdef MS_WINDOWS
+ /* concatenating string here */
+ PyDoc_STR(
+@@ -3889,7 +3889,7 @@ _PySys_InitCore(PyThreadState *tstate, PyObject *sysdict)
+     SET_SYS_FROM_STRING("byteorder", "little");
+ #endif
+ 
+-#ifdef MS_COREDLL
++#if defined(MS_WINDOWS) && defined(Py_ENABLE_SHARED)
+     SET_SYS("dllhandle", PyLong_FromVoidPtr(PyWin_DLLhModule));
+     SET_SYS_FROM_STRING("winver", PyWin_DLLVersionString);
+ #endif

@@ -64,10 +64,10 @@ index 6f8f4b2..3234843 100644
  #  define HAVE_GETNAMEINFO
  #  define ENABLE_IPV6
 diff --git a/configure b/configure
-index 423b21b..0c49e64 100755
+index 55e611f..d47045a 100755
 --- a/configure
 +++ b/configure
-@@ -16616,6 +16616,14 @@ fi
+@@ -16632,6 +16632,14 @@ fi
  
  
  
@@ -82,7 +82,7 @@ index 423b21b..0c49e64 100755
  
  
  
-@@ -25773,6 +25781,13 @@ printf "%s\n" "#define HAVE_ALTZONE 1" >>confdefs.h
+@@ -25815,6 +25823,13 @@ printf "%s\n" "#define HAVE_ALTZONE 1" >>confdefs.h
  
  fi
  
@@ -96,7 +96,7 @@ index 423b21b..0c49e64 100755
  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for addrinfo" >&5
  printf %s "checking for addrinfo... " >&6; }
  if test ${ac_cv_struct_addrinfo+y}
-@@ -25781,7 +25796,12 @@ then :
+@@ -25823,7 +25838,12 @@ then :
  else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
@@ -110,7 +110,7 @@ index 423b21b..0c49e64 100755
  int
  main (void)
  {
-@@ -25817,8 +25837,15 @@ else case e in #(
+@@ -25859,8 +25879,15 @@ else case e in #(
    e) cat confdefs.h - <<_ACEOF >conftest.$ac_ext
  /* end confdefs.h.  */
  
@@ -128,7 +128,7 @@ index 423b21b..0c49e64 100755
  int
  main (void)
  {
-@@ -30629,6 +30656,9 @@ then
+@@ -30754,6 +30781,9 @@ then
  fi
  
  ac_fn_c_check_type "$LINENO" "socklen_t" "ac_cv_type_socklen_t" "
@@ -138,7 +138,7 @@ index 423b21b..0c49e64 100755
  #ifdef HAVE_SYS_TYPES_H
  #include <sys/types.h>
  #endif
-@@ -32970,7 +33000,7 @@ then :
+@@ -33095,7 +33125,7 @@ then :
  
      if true
  then :
@@ -148,10 +148,10 @@ index 423b21b..0c49e64 100755
    py_cv_module__socket=yes
  else case e in #(
 diff --git a/configure.ac b/configure.ac
-index 2def216..3f367cc 100644
+index 81d8d6e..744c260 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -4504,6 +4504,12 @@ AC_SUBST([LIBMPDEC_CFLAGS])
+@@ -4519,6 +4519,12 @@ AC_SUBST([LIBMPDEC_CFLAGS])
  AC_SUBST([LIBMPDEC_INTERNAL])
  
  
@@ -164,7 +164,7 @@ index 2def216..3f367cc 100644
  dnl detect sqlite3 from Emscripten emport
  PY_CHECK_EMSCRIPTEN_PORT([LIBSQLITE3], [-sUSE_SQLITE3])
  
-@@ -6048,18 +6054,33 @@ if test $ac_cv_header_time_altzone = yes; then
+@@ -6089,18 +6095,33 @@ if test $ac_cv_header_time_altzone = yes; then
      [Define this if your time.h defines altzone.])
  fi
  
@@ -202,7 +202,7 @@ index 2def216..3f367cc 100644
    [ac_cv_struct_sockaddr_storage=yes],
    [ac_cv_struct_sockaddr_storage=no]))
  if test $ac_cv_struct_sockaddr_storage = yes; then
-@@ -7316,7 +7337,10 @@ fi
+@@ -7425,7 +7446,10 @@ fi
  
  AC_CHECK_TYPES([socklen_t], [],
                 [AC_DEFINE([socklen_t], [int],
@@ -214,7 +214,7 @@ index 2def216..3f367cc 100644
  #ifdef HAVE_SYS_TYPES_H
  #include <sys/types.h>
  #endif
-@@ -8255,7 +8279,8 @@ PY_STDLIB_MOD([mmap],
+@@ -8364,7 +8388,8 @@ PY_STDLIB_MOD([mmap],
  PY_STDLIB_MOD([_socket],
    [], m4_flatten([test "$ac_cv_header_sys_socket_h" = "yes"
                      -a "$ac_cv_header_sys_types_h" = "yes"

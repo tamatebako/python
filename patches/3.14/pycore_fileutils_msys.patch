@@ -1,0 +1,36 @@
+# pycore_fileutils_msys.patch
+#
+# Target:  Include/internal/pycore_fileutils.h (windows-msys scenario)
+# Source:  MSYS2 MINGW-packages mingw-w64-python 0040
+#          "pycore_fileutils: add MINGW support" (ported verbatim;
+#          the 3.14.7 hunk context is byte-identical to the MSYS2
+#          base — same blob hashes)
+#
+# Wall item (tebako-packages/xml2rfc windows leg, run 34806287957):
+# every TIMED connect on the mingw/ucrt64 runtime died instantly with
+# WinError 10035 (WSAEWOULDBLOCK surfaced as failure) while blocking
+# sockets worked end-to-end (full HTTPS proved over them). Root
+# cause: socketmodule.c's IS_SELECTABLE consults _PyIsSelectable_fd,
+# whose upstream guard admits only _MSC_VER — under the ucrt64 gcc
+# the macro falls to its POSIX branch, and a Winsock SOCKET handle
+# (a large opaque value, not a small CRT fd) fails the
+# fd < FD_SETSIZE check, so internal_connect never waits on the
+# connecting socket. selectmodule's own call site was already
+# MS_WIN32-widened by selectmodule_msys (0074); this patch widens
+# the macro DEFINITION, covering socketmodule's IS_SELECTABLE sites
+# and every future consumer. Rides pyport_ms_windows_msys (0002)
+# for the MS_WINDOWS define — the series order guarantees it.
+
+diff --git a/Include/internal/pycore_fileutils.h b/Include/internal/pycore_fileutils.h
+index 2c6d6da..4ce1516 100644
+--- a/Include/internal/pycore_fileutils.h
++++ b/Include/internal/pycore_fileutils.h
+@@ -13,7 +13,7 @@ extern "C" {
+ 
+ 
+ /* A routine to check if a file descriptor can be select()-ed. */
+-#ifdef _MSC_VER
++#ifdef MS_WINDOWS
+     /* On Windows, any socket fd can be select()-ed, no matter how high */
+     #define _PyIsSelectable_fd(FD) (1)
+ #else

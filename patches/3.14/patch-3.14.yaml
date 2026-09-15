@@ -60,6 +60,15 @@
 # modules switch to have_dynamic_loading), which restores 0076's
 # hunk-3 context to MSYS2-verbatim.
 #
+# v0.3.7 answers the xml2rfc feedstock's windows leg
+# (tebako-packages/xml2rfc run 34806287957): every TIMED connect died
+# instantly with WinError 10035 while blocking sockets worked — the
+# upstream _PyIsSelectable_fd guard admits only _MSC_VER, so under the
+# ucrt64 gcc a Winsock SOCKET handle fails the POSIX fd < FD_SETSIZE
+# check and internal_connect never waits — answered by 0040
+# (pycore_fileutils_msys), which widens the macro DEFINITION to
+# MS_WINDOWS (0074 had widened only selectmodule's call site).
+#
 # NEVER a jit variant on this platform: CPython's experimental JIT target
 # whitelist (PEP 774's tiering, Tools/jit/_targets.py per PEP 836's
 # build-story wording) admits only Tier-1 MSVC windows — a mingw/ucrt64
@@ -112,6 +121,8 @@ patches:
     file: io_winconsoleio_msys.patch
   - feature: win_resources_pythonw_msys
     file: win_resources_pythonw_msys.patch
+  - feature: pycore_fileutils_msys
+    file: pycore_fileutils_msys.patch
   - feature: configure_inet_pton_msys
     file: configure_inet_pton_msys.patch
   - feature: timemodule_msys

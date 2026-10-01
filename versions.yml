@@ -38,6 +38,10 @@ versions:
     url: https://www.python.org/ftp/python/3.12.14/Python-3.12.14.tar.xz
     sha256: 5c8462af5790baf43a321a1559dbe0db06d1be4300fb85fb53c40060668e548a
     line: '3.12'
+  3.12.15:
+    url: https://www.python.org/ftp/python/3.12.15/Python-3.12.15.tar.xz
+    sha256: c2c4321961fab0fb999d66e0cecf521c2ab3994c7992873ea99e306c1094fd5a
+    line: '3.12'
   3.13.15:
     url: https://www.python.org/ftp/python/3.13.15/Python-3.13.15.tar.xz
     sha256: 1e66a7945a48390ee4c2a4268a0e4185884059a13c4aab6d148aa208deea4a76

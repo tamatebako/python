@@ -62,6 +62,11 @@ versions:
     # The tip line carries the windows-msys port (patches/3.14/).
     # The 3.13 series follows in a later PR.
     scenarios: [linux-gnu, windows-msys]
+  3.14.8:
+    url: https://www.python.org/ftp/python/3.14.8/Python-3.14.8.tar.xz
+    sha256: c2215904f02b175596dc49351585104f4bc20341e1c47378b26a2c274360ce73
+    line: '3.14'
+    scenarios: [linux-gnu, windows-msys]
   3.14.9:
     url: https://www.python.org/ftp/python/3.14.9/Python-3.14.9.tar.xz
     sha256: e02d9ac21cebda6e46435369744a92c65cc7cd8669697694122cf97ffacd1e53

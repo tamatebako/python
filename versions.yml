@@ -45,3 +45,7 @@ versions:
     # The tip line carries the windows-msys port (patches/3.14/).
     # The 3.13 series follows in a later PR.
     scenarios: [linux-gnu, windows-msys]
+  3.15.0:
+    url: https://www.python.org/ftp/python/3.15.0/Python-3.15.0.tar.xz
+    sha256: ba4bed1ba346b916890b76d9e320451420aa69f6408997d33c66482eeae3d575
+    line: '3.15'

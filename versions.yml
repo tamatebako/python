@@ -72,3 +72,7 @@ versions:
     sha256: e02d9ac21cebda6e46435369744a92c65cc7cd8669697694122cf97ffacd1e53
     line: '3.14'
     scenarios: [linux-gnu, windows-msys]
+  3.15.1:
+    url: https://www.python.org/ftp/python/3.15.1/Python-3.15.1.tar.xz
+    sha256: 673ae7232d84c894729882c8257d300ef2d26523911bfd3917ec8ce7f526f99b
+    line: '3.15'

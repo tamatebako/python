@@ -63,6 +63,10 @@ versions:
     sha256: 6020bd10aff3bf4821be16f088ebb1591beb7b811dcd8fab1da8f7c22a7b27e7
     line: '3.13'
     line: '3.13'
+  3.13.18:
+    url: https://www.python.org/ftp/python/3.13.18/Python-3.13.18.tar.xz
+    sha256: abb0102e6d4ae027509bcb82327d9dd85515b44a3ba8ad538cfc5e9847029f68
+    line: '3.13'
   3.14.7:
     url: https://www.python.org/ftp/python/3.14.7/Python-3.14.7.tar.xz
     sha256: 3b48dac8fb59f62eaa67ac83c1eb12bda1b7a08406dd286e252c11a66be27f81

@@ -4,9 +4,10 @@ name: runtime-pin-bump
 # successfully, tell tamatebako/tebako-runtime-python to open a PR bumping
 # its source_release pin (contract.yml) to the tag just published. The
 # cross-repo mechanism matches tamatebako/ruby's runtime-pin-bump:
-# repository_dispatch via `gh api`, authenticated with the
-# TEBAKO_CI_PAT_TOKEN org secret. No actions are used (only the
-# preinstalled gh CLI), so there is nothing to pin.
+# repository_dispatch via `gh api`, authenticated with the tebako-fleet
+# App's installation token (tebako-release#3) — its own rate budget, and
+# App-pushed branches fire CI. The only action used is the token mint
+# (SHA-pinned); the dispatch itself rides the preinstalled gh CLI.
 #
 # Idempotent: a re-run of release-src for an already-published tag simply
 # re-sends the same dispatch; the runtime side no-ops when the pin is
@@ -40,8 +41,15 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - name: dispatch to tebako-runtime-python
         if: steps.tag.outputs.tag != ''
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: fleet
+        with:
+          app-id: ${{ vars.TEBAKO_CI_APP_ID }}
+          private-key: ${{ secrets.TEBAKO_CI_APP_PRIVATE_KEY }}
+      - name: send the dispatch
+        if: steps.tag.outputs.tag != ''
         env:
-          GH_TOKEN: ${{ secrets.TEBAKO_CI_PAT_TOKEN }}
+          GH_TOKEN: ${{ steps.fleet.outputs.token }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           gh api repos/tamatebako/tebako-runtime-python/dispatches \

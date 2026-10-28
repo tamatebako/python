@@ -48,20 +48,28 @@ jobs:
       - name: job summary
         if: always()
         run: cat monitor-result.json >> "$GITHUB_STEP_SUMMARY"
-      - name: open pull request
+      - name: Mint the fleet token
+        id: fleet
+        # The tebako-fleet App's installation token (tebako-release#3),
+        # not the default GITHUB_TOKEN: a PR authored by
+        # github-actions[bot] has every workflow run HELD as
+        # `action_required` — GitHub's anti-recursion rule, the same class
+        # the node and bun monitors fixed — so the lint matrix never
+        # reports `all checks green`, branch protection keeps the PR
+        # BLOCKED, and a human has to approve each run by hand. Five
+        # onboarding PRs (#35-#39) sat that way on 2026-10-26 with three
+        # green checks and no way to merge. An App-pushed branch fires CI,
+        # and the token carries its own rate budget (the PAT it replaces
+        # is 5,000 req/h per user, shared by the whole fleet).
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ vars.TEBAKO_CI_APP_ID }}
+          private-key: ${{ secrets.TEBAKO_CI_APP_PRIVATE_KEY }}
+      - name: create the pull request
         if: success()
         uses: peter-evans/create-pull-request@v7
         with:
-          # The org PAT, not the default GITHUB_TOKEN: a PR authored by
-          # github-actions[bot] has every workflow run HELD as
-          # `action_required` — GitHub's anti-recursion rule, the same class
-          # the node and bun monitors fixed — so the lint matrix never
-          # reports `all checks green`, branch protection keeps the PR
-          # BLOCKED, and a human has to approve each run by hand. Five
-          # onboarding PRs (#35-#39) sat that way on 2026-10-26 with three
-          # green checks and no way to merge. The PAT is an org secret with
-          # visibility `all`, so it is present in every factory.
-          token: ${{ secrets.TEBAKO_CI_PAT_TOKEN }}
+          token: ${{ steps.fleet.outputs.token }}
           branch: onboard/python-${{ matrix.version }}
           title: "Onboard python ${{ matrix.version }}"
           commit-message: "Onboard python ${{ matrix.version }} (release monitor)"

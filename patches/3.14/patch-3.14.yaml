@@ -69,6 +69,17 @@
 # (pycore_fileutils_msys), which widens the macro DEFINITION to
 # MS_WINDOWS (0074 had widened only selectmodule's call site).
 #
+# v0.3.8 answers the msys ecosystem's roll to openssl 4.1.0 (trp#101,
+# trp run 44205030033): 4.x exports no TLSv1/TLSv1_1/TLSv1_2 method
+# from either libssl.a or libssl.dll.a while its headers define no
+# OPENSSL_NO_TLS1_*_METHOD macro, so the stock _ssl.c guards never
+# engage and the static _ssl link into _freeze_module/_bootstrap_python
+# dies on the undefined references. Answered by the openssl4 pair —
+# MSYS2's 970 (cpython PR #149783) + 971 (cpython e7acd6a), Modules/
+# hunks verbatim — which define the OPENSSL_NO_*_METHOD macros under
+# OPENSSL_VERSION_NUMBER >= 0x40000000L. TLS 1.0-1.2 stay available
+# through TLS_method().
+#
 # NEVER a jit variant on this platform: CPython's experimental JIT target
 # whitelist (PEP 774's tiering, Tools/jit/_targets.py per PEP 836's
 # build-story wording) admits only Tier-1 MSVC windows — a mingw/ucrt64
@@ -165,5 +176,9 @@ patches:
     file: mmapmodule_no_seh_msys.patch
   - feature: configure_pthread_name_maxlen_msys
     file: configure_pthread_name_maxlen_msys.patch
+  - feature: openssl4_compat_msys
+    file: openssl4_compat_msys.patch
+  - feature: openssl4_tls_availability_msys
+    file: openssl4_tls_availability_msys.patch
   - feature: configure_syslibs_msys
     file: configure_syslibs_msys.patch
